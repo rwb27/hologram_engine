@@ -1,0 +1,38 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 11.00
+# Visual Studio 2010
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "wgl_gratingsandlenses", "wgl_gratingsandlenses\wgl_gratingsandlenses.vcxproj", "{79F37F93-311A-4F9F-912E-56031AB6C01C}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Win32 = Debug|Win32
+		Debug|x64 = Debug|x64
+		Release|Win32 = Release|Win32
+		Release|x64 = Release|x64
+		Release-64|Win32 = Release-64|Win32
+		Release-64|x64 = Release-64|x64
+		Release-old|Win32 = Release-old|Win32
+		Release-old|x64 = Release-old|x64
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{79F37F93-311A-4F9F-912E-56031AB6C01C}.Debug|Win32.ActiveCfg = Debug|Win32
+		{79F37F93-311A-4F9F-912E-56031AB6C01C}.Debug|Win32.Build.0 = Debug|Win32
+		{79F37F93-311A-4F9F-912E-56031AB6C01C}.Debug|x64.ActiveCfg = Debug|x64
+		{79F37F93-311A-4F9F-912E-56031AB6C01C}.Debug|x64.Build.0 = Debug|x64
+		{79F37F93-311A-4F9F-912E-56031AB6C01C}.Release|Win32.ActiveCfg = Release|Win32
+		{79F37F93-311A-4F9F-912E-56031AB6C01C}.Release|Win32.Build.0 = Release|Win32
+		{79F37F93-311A-4F9F-912E-56031AB6C01C}.Release|x64.ActiveCfg = Release|x64
+		{79F37F93-311A-4F9F-912E-56031AB6C01C}.Release|x64.Build.0 = Release|x64
+		{79F37F93-311A-4F9F-912E-56031AB6C01C}.Release-64|Win32.ActiveCfg = Release-64|Win32
+		{79F37F93-311A-4F9F-912E-56031AB6C01C}.Release-64|Win32.Build.0 = Release-64|Win32
+		{79F37F93-311A-4F9F-912E-56031AB6C01C}.Release-64|x64.ActiveCfg = Release-64|x64
+		{79F37F93-311A-4F9F-912E-56031AB6C01C}.Release-64|x64.Build.0 = Release-64|x64
+		{79F37F93-311A-4F9F-912E-56031AB6C01C}.Release-old|Win32.ActiveCfg = Release-old|Win32
+		{79F37F93-311A-4F9F-912E-56031AB6C01C}.Release-old|Win32.Build.0 = Release-old|Win32
+		{79F37F93-311A-4F9F-912E-56031AB6C01C}.Release-old|x64.ActiveCfg = Release-old|x64
+		{79F37F93-311A-4F9F-912E-56031AB6C01C}.Release-old|x64.Build.0 = Release-old|x64
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

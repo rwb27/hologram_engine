@@ -1,0 +1,16 @@
+﻿Build started 14/08/2018 19:48:24.
+     1>Project "C:\local\dev\red_tweezers\red_tweezers_1_4_release\hologram_engine_source_code\wgl_gratingsandlenses\wgl_gratingsandlenses.vcxproj" on node 2 (Build target(s)).
+     1>ClCompile:
+         C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\CL.exe /c /ZI /nologo /W3 /WX- /Od /Oy- /D WIN32 /D _DEBUG /D _WINDOWS /D _UNICODE /D UNICODE /Gm /EHsc /RTC1 /MTd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Fo"Debug\\" /Fd"Debug\vc120.pdb" /Gd /TP /analyze- /errorReport:prompt GPGPU.cpp skipline.cpp UDPServer.cpp wgl_gratingsandlenses.cpp
+         wgl_gratingsandlenses.cpp
+     1>c:\local\dev\red_tweezers\red_tweezers_1_4_release\hologram_engine_source_code\wgl_gratingsandlenses\wgl_gratingsandlenses.cpp(19): fatal error C1083: Cannot open include file: 'GL/glew.h': No such file or directory
+         UDPServer.cpp
+         skipline.cpp
+         GPGPU.cpp
+     1>c:\local\dev\red_tweezers\red_tweezers_1_4_release\hologram_engine_source_code\wgl_gratingsandlenses\gpgpu.h(33): fatal error C1083: Cannot open include file: 'GL/glew.h': No such file or directory
+         Generating Code...
+     1>Done Building Project "C:\local\dev\red_tweezers\red_tweezers_1_4_release\hologram_engine_source_code\wgl_gratingsandlenses\wgl_gratingsandlenses.vcxproj" (Build target(s)) -- FAILED.
+
+Build FAILED.
+
+Time Elapsed 00:00:02.61
