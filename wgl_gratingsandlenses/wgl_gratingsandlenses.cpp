@@ -88,6 +88,9 @@ int APIENTRY _tWinMain(HINSTANCE hInstance,
 	//create the objects for GPGPU stuff and network comms
 	gpgpu = new GPGPU(false);
 	udpServer = new UDPServer(port);
+#ifdef BNS_PCIE
+	setupBNS();
+#endif
 
 	//display our window
 	ShowWindow(windowHandle,SW_SHOW);

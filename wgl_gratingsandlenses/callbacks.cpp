@@ -34,7 +34,10 @@ using namespace std;
 
 #include "GPGPU.h"
 #include "UDPServer.h"
-//#include "IterationTimer.h"
+
+#ifdef BNS_PCIE
+#include <Blink_SDK.h>
+#endif
 
 // constants
 #define PORT "61557"
@@ -44,6 +47,10 @@ using namespace std;
 //gloabls
 GPGPU  *gpgpu;
 UDPServer *udpServer;
+#ifdef BNS_PCIE
+Blink_SDK *blink_sdk;
+int bns_board_number = 1;
+#endif BNS_PCIE
 //IterationTimer *iterationTimer;
 char buffer[MAX_UDP_BUFFER_LENGTH];
 bool networkReply=false;
@@ -194,6 +201,52 @@ error:
 cleanup:
 	free(buffer);
 }
+
+#ifdef BNS_PCIE
+
+bool setupBNS(){
+	int board_number;
+	// Construct a Blink_SDK instance with Overdrive capability.
+	unsigned int bits_per_pixel = 12U;
+	bool         is_nematic_type = true;
+	bool         RAM_write_enable = true;
+	bool         use_GPU_if_available = true;
+
+	unsigned int n_boards_found = 0U;
+	bool         constructed_okay = true;
+
+	blink_sdk = new Blink_SDK(bits_per_pixel, &n_boards_found,
+		&constructed_okay, is_nematic_type, RAM_write_enable,
+		use_GPU_if_available, 10U, 0);
+
+	//TODO: load the LUT here??
+
+	// Check that everything started up successfully.
+	return constructed_okay;
+}
+
+void copyHologramToBNS(){
+	// Send a UDP reply packet that contains the hologram
+	int w = gpgpu->getViewportWidth();
+	int h = gpgpu->getViewportHeight();
+	int numPixels = w*h;
+	unsigned char * image = (unsigned char *)malloc(numPixels);
+	size_t hologram_length = gpgpu->getHologramChannelAsU8((GLubyte *)image, numPixels, GL_GREEN);
+	if (hologram_length != numPixels) goto error;
+	
+	bool ExternalTrigger = false;
+	bool OutputPulse = false;
+	blink_sdk->Write_image(bns_board_number, image, numPixels, ExternalTrigger, OutputPulse, 5000);
+
+	goto cleanup;
+error:
+	const char * failmsg = "an error occurred copying the hologram to the BNS SLM";
+	udpServer->reply(failmsg, strlen(failmsg));
+cleanup:
+	free(buffer);
+}
+
+#endif BNS_PCIE
 
 char * skipLineBreak(char* pos){
 	pos=strpbrk(pos,"\n\r\f\t");
@@ -426,6 +479,9 @@ int updateSpotsFromBuffer(char* recvbuffer, int messagelength){
 		}
 	}
     gpgpu->update();
+#ifdef BNS_PCIE
+	copyHologramToBNS();
+#endif
 	return 0;
 }
 
