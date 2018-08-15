@@ -36,7 +36,7 @@ public:
 	~UDPServer();
 	
 	int receive(char* buffer, int buffer_length, int timeout, char * start, char * terminator);
-	int reply(char* buffer, int buffer_length);
+	int reply(const char* buffer, int buffer_length);
 protected:
 	void* get_in_addr(struct sockaddr * sa);
 	

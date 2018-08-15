@@ -90,7 +90,7 @@ public: // methods
 
 	void setScreenAspect(float width_over_height){if(width_over_height>0.0) _screenAspect=width_over_height;}// this->reshape(_viewportWidth,_viewportHeight); this->reshape(64,64);}
 
-
+	size_t getHologramChannelAsU8(unsigned char * buffer, size_t length, GLenum channel = GL_GREEN);
 protected: // data
 	int initialiseShader();			 //set up the shader programs (and re-set-up when required)
 	int initialiseFragmentShader(const char ** shaderSource);

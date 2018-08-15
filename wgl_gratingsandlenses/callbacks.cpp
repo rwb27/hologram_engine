@@ -26,8 +26,10 @@ using namespace std;
 
 #ifdef WIN32
 #define P_SSCANF sscanf_s
+#define P_SNPRINTF _snprintf
 #else
 #define P_SSCANF sscanf
+#define P_SNPRINTF snprintf
 #endif
 
 #include "GPGPU.h"
@@ -143,6 +145,56 @@ void swapBuffersAndWait(HDC hDC){
 }
 #endif
 
+#define DEBUG_REPLY(MSG) udpServer->reply(MSG, strlen(MSG))
+
+void replyWithHologramChannel(GLenum channel){
+	// Send a UDP reply packet that contains the hologram
+	int w = gpgpu->getViewportWidth();
+	int h = gpgpu->getViewportHeight();
+	int numPixels = w*h;
+	const size_t buffer_length = 512 + numPixels;
+	char * buffer = (char *) malloc(buffer_length);
+	char * pos = buffer; // This keeps track of our current "cursor position" in the buffer
+	char * end = buffer + buffer_length; // We don't want to run over the end of the buffer
+	pos += P_SNPRINTF(buffer, end - pos, "<data>\n<channel width=\"%d\" height=\"%d\" format=\"packedu8\">\n<binary size=\"%d\">", w, h, numPixels);
+	if(pos < buffer) goto error; // If something went wrong, or there's not enough space, stop.
+
+	size_t hologram_length = gpgpu->getHologramChannelAsU8((GLubyte *)pos, end - pos, channel);
+	if(hologram_length != numPixels) goto error;
+	pos += hologram_length;
+
+	const char * endstring = "</binary>\n</channel>\n</data>";
+	if (strlen(endstring) + 1 > end - pos) goto error;
+	memcpy(pos, endstring, strlen(endstring));
+	pos += strlen(endstring);
+	pos[0] = 0; // null-terminate the string
+
+	// We'll have to send this in stages
+	end = pos; // This is now the end of the message
+	pos = buffer; // Reset, and use pos to keep track of where we are
+	while (pos < end){
+		int sent = udpServer->reply(pos, min(end - pos, 50000));
+		//int sent = min(end - pos, 50000);
+		if (sent <= 0) goto error;
+		pos += sent;
+		//char tmp[128];
+		//P_SNPRINTF(tmp, 128, "sent %d bytes, %d remaining", sent, end-pos);
+		//DEBUG_REPLY(tmp);
+	}
+	if (pos > end) goto error;
+
+	//char tmp[128];
+	//P_SNPRINTF(tmp, 128, "sent %d bytes", sent);
+	//DEBUG_REPLY(tmp);
+
+	goto cleanup;
+error:
+	const char * failmsg = "error returning image channel (probably a potential buffer overflow)";
+	udpServer->reply(failmsg, strlen(failmsg));
+cleanup:
+	free(buffer);
+}
+
 char * skipLineBreak(char* pos){
 	pos=strpbrk(pos,"\n\r\f\t");
 	if(pos!=NULL)return pos+strspn(pos,"\n\r\f\t");
@@ -254,7 +306,7 @@ int updateSpotsFromBuffer(char* recvbuffer, int messagelength){
 	while(find_tag(pos, "uniform", &pos, &tagEnd, &valEnd)){ //the uniform tags are most common- they set the value of a uniform variable
 		int uniformID = -1;
 		if(!get_tag_parameter_int(pos, "id", &uniformID)) continue; //insert code to look up uniforms by name here...
-		pos = tagEnd + 1;                  //skip to the end of the tag
+		pos = tagEnd + 1;                  //skip to the end of the (opening) <uniform > tag
         
         int n=0;
         float val;
@@ -361,6 +413,17 @@ int updateSpotsFromBuffer(char* recvbuffer, int messagelength){
 			gpgpu->recompileShader((const char **) &shaderSource);
 			free(shaderSource);
 		}
+		if (find_tag(dataStart, "get_hologram_channel", NULL, &tagEnd, NULL)){
+			GLenum channel = GL_GREEN;
+			int y;
+			if (P_SSCANF(tagEnd + 1, " %d", &y) == 1){
+				if (y == 0) channel = GL_RED;
+				if (y == 1) channel = GL_GREEN;
+				if (y == 2) channel = GL_BLUE;
+				if (y == 3) channel = GL_ALPHA;
+			}
+			replyWithHologramChannel(channel);
+		}
 	}
     gpgpu->update();
 	return 0;
@@ -371,7 +434,12 @@ int updateSpotsFromNetwork(int timeout){
 	int messagelength=udpServer->receive(buffer, MAX_UDP_BUFFER_LENGTH, timeout, "<data", "</data>"); //try to recieve a packet
 
 	if(messagelength>0){ //if we've got something (which starts with <data and ends with </data>),
-		return updateSpotsFromBuffer(buffer, messagelength);
+		int ret = updateSpotsFromBuffer(buffer, messagelength);
+		if (networkReply){
+			char * replyBuffer = (char *)malloc(9);
+			replyBuffer = "cheers\r\n";
+			udpServer->reply(replyBuffer, 7);
+		}
 	}
 
 

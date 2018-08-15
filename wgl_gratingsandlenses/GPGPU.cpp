@@ -279,3 +279,26 @@ void GPGPU::reshape(int w, int h){
     glMatrixMode(GL_MODELVIEW);     
     glLoadIdentity();    
 }
+
+size_t GPGPU::getHologramChannelAsU8(unsigned char * buffer, size_t length, GLenum channel){
+	GLint viewport[4];			//place to put the viewport
+	glGetIntegerv(GL_VIEWPORT, viewport);
+	unsigned long numPixels = viewport[2] * viewport[3];
+	if (length < numPixels) return 0;
+	if (!(channel == GL_RED || channel == GL_GREEN || channel == GL_BLUE || channel == GL_ALPHA)) return 0;
+	if (buffer == NULL) return 0;
+	//RAM it up...
+	//hologram = (GLubyte*)malloc(numPixels);//we assume 1 byte per pixel... in this version, ram is allocated externally.
+	//set up transfer settings
+	glPixelStorei(GL_PACK_ALIGNMENT, 1);
+	glPixelStorei(GL_PACK_ROW_LENGTH, 0);
+	glPixelStorei(GL_PACK_SKIP_ROWS, 0);
+	glPixelStorei(GL_PACK_SKIP_PIXELS, 0);
+	//make sure there are no floaters (force a render of the hologram)
+	glFlush();
+
+	glReadBuffer(GL_BACK);
+	glReadPixels(0, 0, viewport[2], viewport[3], channel, GL_UNSIGNED_BYTE, buffer);
+	//return (unsigned char *) hologram; //GLubyte should be the same as unsigned char, i.e. unsigned byte.
+	return numPixels;
+}

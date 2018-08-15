@@ -159,7 +159,7 @@ void* UDPServer::get_in_addr(struct sockaddr *sa){
 	}
 }
 
-int UDPServer::reply(char* buffer, int buffer_length){
+int UDPServer::reply(const char* buffer, int buffer_length){
 	//respond to the address that the last packet came from.
 	return sendto(last_socket_fd,buffer, buffer_length, 0, (struct sockaddr*)&client_address, client_address_length);
 }

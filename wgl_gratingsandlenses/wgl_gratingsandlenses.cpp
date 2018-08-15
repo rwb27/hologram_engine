@@ -105,7 +105,6 @@ int APIENTRY _tWinMain(HINSTANCE hInstance,
 	//message queue.  This should ensure minimal latency in recieving the packets, without being
 	//too unresponsive to Windows- we wouldn't want it to get upset now...
 	BOOL bRet = 1;
-	int i=0;
 	while (bRet != 0)
 	{	//fast hologram generation waits for no man!
 		clearNetworkBacklogAndUpdate(); //this listens for incoming packets 
@@ -114,16 +113,6 @@ int APIENTRY _tWinMain(HINSTANCE hInstance,
 			bRet=GetMessage(&msg,NULL,0,0); //take the message out the queue
 			TranslateMessage(&msg);	//pass the buck
 			DispatchMessage(&msg);
-		}
-		if(i>3){ 
-			//if(networkReply) iterationTimer->networkReply(); //TODO make this give a response!
-			if(networkReply){
-				char * replyBuffer = (char *) malloc(9);
-				replyBuffer = "cheers\r\n";
-				udpServer->reply(replyBuffer,7);
-			}
-		}else{
-			i++;
 		}
 	}
 
