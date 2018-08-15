@@ -4,24 +4,21 @@
 #include <string>
 #include <sstream>
 #include <ios>
-#include <iostream>
-#include <iomanip>
-//using std::string;
-//using std::istringstream;
-//using std::ios;
-using namespace std;
-//#include "skipline.cpp"
+using std::string;
+using std::istringstream;
+using std::ios;
+#include "skipline.cpp"
+
+#ifdef WIN32
+#include "multimon.h"
+#endif
 
 // openGL
-#define GLEW_STATIC 1
-#ifdef WIN32
-#include <GL/glew.h>
 #include <gl/gl.h>
 #include <gl/glu.h>
-#else
-#include "/opt/local/include/GL/glew.h"
+
+#ifndef WIN32
 #include <GLUT/glut.h>
-#include <OpenGL/OpenGL.h>
 #endif
 
 #ifdef WIN32
@@ -32,17 +29,20 @@ using namespace std;
 
 #include "GPGPU.h"
 #include "UDPServer.h"
-//#include "IterationTimer.h"
+#include "IterationTimer.h"
+#include "BoulderSLM.h"
 
 // constants
 #define PORT "61557"
-#define MAX_UDP_BUFFER_LENGTH 655360
+#define MAX_UDP_BUFFER_LENGTH 32768
 #define DEFAULTS_FILENAME "hologram_server_settings.rc"
 
 //gloabls
+unsigned char * hologramBuffer;
 GPGPU  *gpgpu;
 UDPServer *udpServer;
-//IterationTimer *iterationTimer;
+IterationTimer *iterationTimer;
+BoulderSLM *boulderSLM;
 char buffer[MAX_UDP_BUFFER_LENGTH];
 bool networkReply=false;
 float initialWaitTime=0.0f; //we wait for a certain amount of time at the start of each iteration to reduce latency
@@ -65,10 +65,6 @@ void postRedisplay(){
 void moveAndSizeWindow(int x, int y, int w, int h){
 #ifdef WIN32
 	MoveWindow(windowHandle, x,y,w,h,true);
-	gpgpu->reshape(w, h);
-#else
-    glutReshapeWindow(w, h);
-    glutPositionWindow(x, y);
 #endif
 }
 
@@ -102,24 +98,6 @@ void fullScreen(int monitor){
 	//go fullscreen on the given monitor
 	goFullScreenOnGivenMonitor(NULL,NULL,NULL,999);
 	EnumDisplayMonitors(NULL,NULL,goFullScreenOnGivenMonitor,monitor);
-#else
-    glutFullScreen();
-#endif
-}
-
-void setSwapBuffersAtRefreshRate(int lock){
-	if(lock!=0) lock=1;
-#ifdef WIN32
-	// Get swap interval function pointer if it exists
-	PFNWGLSWAPINTERVALEXTPROC wglSwapIntervalEXT = (PFNWGLSWAPINTERVALEXTPROC)wglGetProcAddress("wglSwapIntervalEXT");
-	if(wglSwapIntervalEXT != NULL){ 
-		wglSwapIntervalEXT(lock);
-	//if(lock==1)	MessageBox(windowHandle,_T("Successfully asked Windows to sync buffer swaps from vertical retrace"),_T("info"),MB_OK);
-	//else 		MessageBox(windowHandle,_T("Successfully asked Windows to unsync buffer swaps from vertical retrace"),_T("info"),MB_OK);
-	}
-#else
-    CGLContextObj cgl_context = CGLGetCurrentContext();
-    CGLSetParameter(cgl_context, kCGLCPSwapInterval, &lock);
 #endif
 }
 
@@ -154,228 +132,221 @@ char * skipSpace(char* pos){
 	else return NULL;
 }
 
-bool find_tag(char * str, const char * name, char ** tag, char ** tagend, char ** closingtag){
-	//this function is as close to a proper XML parser as I can be bothered writing.
-	//I know there's libraries for this, but I care mostly about speed here...
-	char * start = (char *) malloc(strlen(name)+2);
-	start[0] = '<';
-	memcpy(start+1, name, strlen(name));
-	start[strlen(name)+1] = 0;
-
-	char * tagi = strstr(str, start); //the opening tag
-	free(start);
-	if(tagi == NULL) return false;
-	if(tag != NULL) *tag = tagi;
-
-	char * tagendi = strstr(tagi, ">"); //the end of the opening tag
-	if(tagendi == NULL) return false;
-	if(tagend != NULL) *tagend = tagendi;
-	
-	char * end = (char *) malloc(strlen(name)+4);
-	end[0] = '<';
-	end[1] = '/';
-	memcpy(end+2, name, strlen(name));
-	end[strlen(name)+2] = '>';
-	end[strlen(name)+3] = 0;
-
-	char * closingtagi = strstr(tagendi, end); //the closing tag
-	free(end);
-	if(closingtagi == NULL) return false;
-	if(closingtag != NULL) *closingtag = closingtagi;
-
-	return true;
-}
-
-char * find_parameter_value(char * tag, const char * name){
-	//find the start of the value for a tag parameter (e.g. <tag parameter="value"...>)
-	const char * tagend = strstr(tag, ">");
-	tag = strstr(tag, name);
-	if(tag == NULL || tagend == NULL || tag > tagend) return NULL;
-	tag += strlen(name);
-	tag += strspn(tag, " =\"'");
-	return tag;
-}
-
-bool get_tag_parameter_int(char * tag, const char * name, const int * value){
-	//scan inside the parameter's value, and extract an integer.  Nearly all my parameters are integers.
-		tag = find_parameter_value(tag, name);
-		if(tag == NULL) return false;
-
-		return (1 == P_SSCANF(tag,"%d", value)); //We have already skipped over any quotes that may be present
-}
-
-void clean_binary_bits_from_buffer(char * dirtybuffer, char * cleanbuffer, int messagelength){
-	//the packet can contain binary blobs of data for packed textures (maybe at some point packed uniforms too, though their size makes that less of an issue)
-	//we copy out the text (so strstr and the like can be used without worrying about binary junk), but keep pointers to the
-	//original binary data.  If what we have is lots of binary data and only a little text around it, this should be efficient.
-	char * pos = dirtybuffer;
-	char * text_start = pos;
-	char * write_pos = cleanbuffer;
-	while(pos < dirtybuffer + messagelength && (pos = strstr(pos,"<binary"))!=NULL){  //loop through all the binary tags
-		char * tag_start = pos;
-		int size = -1;
-		if(!get_tag_parameter_int(pos, "size", &size)) continue; //find size or skip
-
-		pos = strstr(pos, ">"); //move pos to the final non-binary character
-		if(pos == NULL) continue;
-		pos += 1;
-
-		int len = tag_start - text_start;
-		memcpy(write_pos, text_start, len); //copy the text up to and including the tag into the clean buffer
-		write_pos += len;
-		sprintf(write_pos,"<binary offset=\"%08d\" size=\"%08d\" />", pos - dirtybuffer, size); //add the offset and size of binary data in the dirty buffer
-		write_pos += 44;
-
-		pos += size + 8;  //skip over the binary blob and closing tag
-		pos += strspn(pos, " >");
-		text_start = pos;
-	}
-	if(text_start > dirtybuffer + messagelength - 1) return; //prevent access error if packets are split in binary bits.
-	//now we copy whatever [text] remains.
-	memcpy(write_pos, text_start, dirtybuffer + messagelength - text_start +1); //copy from the start of the last string section
-		//up to the null character at the end of the string (the +1 copies the null).
-}
-
-int updateSpotsFromBuffer(char* recvbuffer, int messagelength){
+int updateSpotsFromBuffer(char* buffer, int messagelength){
 	//our buffer contains a message, which starts with <data> and ends with </data>.  Inside are a number of elements
-	//which look like <thing> stuff </thing>, so we search for each in turn and parse them.  NB this is NOT an XML parser
+	//which look like <thing> stuff </thing>, so we search for each in turn and parse them.  NB this is NOT and XML parser
 	//we rely on a lot of newlines.
-
-	//to cope with binary bits of data, I'm using a pre-cleaner
-	char buffer[MAX_UDP_BUFFER_LENGTH];
-	clean_binary_bits_from_buffer(recvbuffer, buffer, messagelength);
-
-	char * pos, *dataStart, * endpos;
-	find_tag(buffer, "data", &dataStart, NULL, &endpos); //locate the <data> </data> tags that enclose all of the data
-
-	pos = dataStart;
-	float uniformValue[4096];
-	char * valEnd, * tagEnd;
-	while(find_tag(pos, "uniform", &pos, &tagEnd, &valEnd)){ //the uniform tags are most common- they set the value of a uniform variable
-		int uniformID = -1;
-		if(!get_tag_parameter_int(pos, "id", &uniformID)) continue; //insert code to look up uniforms by name here...
-		pos = tagEnd + 1;                  //skip to the end of the tag
-        
-        int n=0;
-        float val;
-        pos += strspn(pos, " \t\n\r<");               //skip any initial whitespace
-        while(pos && pos < valEnd && P_SSCANF(pos, " %f", &val) && n<4096){ //check that: 
-			                                                                //we successfully skipped over whitespace, 
-			                                                                //we have not reached the closing </uniform>, 
-			                                                                //we have got another number, 
-			                                                                //and we aren't going to exceed the size of the buffer
-            uniformValue[n]=val;                      //store it in the array + increment n
-            pos = strpbrk(pos, " \t\n\r<")+1;
-            n++;
-        }
-        
-		if(n>0) gpgpu->setUniform(uniformID,uniformValue,n);
-	}
-
-	pos=dataStart;
-	while(find_tag(pos, "texture", &pos, &tagEnd, &valEnd)){ //texture tags are analogous to uniforms, but with texture data
-		int uniformID, width, height;
-		bool ok = true;
-		ok &= get_tag_parameter_int(pos, "id", &uniformID);
-		ok &= get_tag_parameter_int(pos,"width",&width);
-		ok &= get_tag_parameter_int(pos,"height",&height);
-		if(!ok) continue;
-
-		bool packedData = false, integerData = false;
-		char * fmt = find_parameter_value(pos, "format");
-		if(fmt != NULL && strstr(fmt, "packed") == fmt){				//are we dealing with packed or human-readable data?
-			packedData = true;
-			fmt += 6;
-			if(strstr(fmt, "u8") == fmt) integerData = true;
-		}
-
-		int components = 4;                     //we assume that all textures are RGBA for now
-
-		pos = tagEnd + 1;                  //skip to the end of the tag
-        
-		//now we should be in the data section.
-
-		if(packedData){
-			int offset = -1, size = -1;
-			P_SSCANF(pos, " <binary offset=\"%08d\" size=\"%08d\" />", &offset, &size); //this is generated in clean_binary_bits_from_buffer, hence no worries re: space/quotes
-			if(offset<0 || size<0) continue;
-
-			if(integerData){
-				int n = size; //number of bytes in array
-				if(n=width*height*components) gpgpu->setUniformTexture(uniformID, (unsigned char *) (recvbuffer + offset), width,height,4); //point to the binary data in place
+	//also, most of the time we'll only be receiving the <spots> </spots> part, so we short-circuit the other string searches in
+	//this case.
+	int n=0, ret=0;
+	bool only_spots=false; //if the message only contains spots, this flags it up so we can skip other stuff.
+	char* pos=strstr(buffer,"<spots>\n"); //find the start of the spots
+	char* endpos=strstr(buffer,"</spots>"); //find the end of the spots
+	if(pos!=NULL && endpos!=NULL){
+		only_spots = (pos-buffer)<15 && (buffer+messagelength-endpos)<20; //does the message only contains spots?
+		pos=skipLineBreak(pos); //skip to the next line
+		string spotstring = string(pos,(size_t) (endpos-pos));
+		istringstream spotstream = istringstream(spotstring);
+	
+		float x=0,y=0,z=0,I=1,phi=0,nax=0,nay=0,nar=0,lx=0,ly=0,lz=0,lpg=0;
+		int l=0;
+		float* spots=gpgpu->getSpots(); //access the spots array directly
+		n=0;
+		while(n<MAX_N_SPOTS){ //for elegance, spotstream should go in here.
+			float* spot=&spots[n*SPOT_ELEMENTS];
+			spotstream >> x >> y >> z >> I >> l >> phi;
+#ifdef NA_MANIPULATION
+			spotstream >> nax >> nay >> nar;
+#endif
+#ifdef LINETRAP3D
+			spotstream >> lx >> ly >> lz >> lpg;
+#endif
+			if(spotstream){
+				spot[0]=x;
+				spot[1]=y;
+				spot[2]=z;
+				spot[3]=(float)l;
+				spot[4]=I;
+				spot[5]=phi; //for the moment, this MUST be there
+#ifdef NA_MANIPULATION
+				spot[8]=nax;
+				spot[9]=nay;
+				spot[10]=nar;
+#endif
+#ifdef LINETRAP3D
+				spot[12]=lx;
+				spot[13]=ly;
+				spot[14]=lz;
+				spot[15]=lpg;
+#endif
+				n++;	//if we got a spot, increment n
 			}else{
-				int n = size/sizeof(0.0f); //number of floats in array
-				if(n=width*height*components) gpgpu->setUniformTexture(uniformID, (float *) (recvbuffer + offset), width,height,4); //point to the binary data in place
+				break; //stop when we run out of input
 			}
-		}else{
-			int n=0;
-			float val;
-			float * textureData = (float *) malloc(width * height * components * sizeof(float));
-			pos += strspn(pos, " \t\n\r<");               //skip any initial whitespace
-			while(pos && pos < valEnd && P_SSCANF(pos, " %f", &val) && n<width*height*components){ //check that: 
-																				//we successfully skipped over whitespace, 
-																				//we have not reached the closing </uniform>, 
-																				//we have got another number, 
-																				//and we aren't going to exceed the size of the buffer
-				textureData[n]=val;                      //store it in the array + increment n
-				pos = strpbrk(pos, " \t\n\r<")+1;
-				n++;
+#ifdef ZERNIKE_PERSPOT
+			if(spotstream){
+				int i=12;
+				while(spotstream && i<SPOT_ELEMENTS){
+					spotstream >> z;
+					spot[i]=z;
+					i++;
+				}
+				//!TODO! this should fail gracefully if not enough Zernike modes are specified, rather than causing the last spot to disappear...
+				//must find a way of skipping whitespace but NOT newlines...
 			}
-        
-			if(n=width*height*components) gpgpu->setUniformTexture(uniformID,textureData,width,height,4);
-			free(textureData);
+#endif			
+			spotstream >> skipline; //then go to the next line
+		}
+		
+		if(n>0){
+			gpgpu->setNSpots(n);
 		}
 	}
-	if(true){ //config-related stuff in here- we could disable this based on the presence of a <config> section...?
-		if(find_tag(dataStart, "aspect", NULL, &tagEnd, NULL)){
-			float screen;
-			if(P_SSCANF(tagEnd+1, " %f", &screen) == 1) if(screen > 0.0) gpgpu->setScreenAspect(screen);
+	
+	if(!only_spots){
+		pos=strstr(buffer,"<blazing>\n");
+		if(pos!=NULL){//if we've got an updated blazing function, pass it on
+		pos=skipLineBreak(pos); //skip to the next line
+			endpos=strstr(buffer,"</blazing>");
+			float b;
+			int i=0;
+			float* blazingTable = gpgpu->getBlazing(); //get the blazing table array
+			while(pos != NULL && pos<endpos && P_SSCANF(pos,"%f",&b)==1 && i<BLAZING_TABLE_LENGTH){ //iterate through and set blazing
+				blazingTable[i]=b;
+				i++;
+				pos=skipLineBreak(pos); //skip to the next line
+			}
 		}
-		if(find_tag(dataStart, "window_rect", NULL, &tagEnd, NULL)){
-			int x,y,w,h,m; //get the parameters
-			if(P_SSCANF(tagEnd + 1," %d, %d, %d, %d",&x,&y,&w,&h)==4
-				|| P_SSCANF(tagEnd + 1," %d %d %d %d",&x,&y,&w,&h)==4){ //if we've got four numbers with spaces
+
+		pos=strstr(buffer,"<zernike>\n");
+		if(pos!=NULL){//if we've got an updated blazing function, pass it on
+		pos=skipLineBreak(pos); //skip to the next line
+			endpos=strstr(buffer,"</zernike>");
+			float z;
+			int i=0;
+			float* zernikeCoefficients = gpgpu->getZernike(); //get the array
+			while(pos != NULL && pos<endpos && P_SSCANF(pos,"%f",&z)==1 && i<ZERNIKE_COEFFICIENTS_LENGTH){ //iterate through and set blazing
+				zernikeCoefficients[i]=z;
+				i++;
+				pos=skipLineBreak(pos); //skip to the next line
+			}
+		}
+
+		pos=strstr(buffer,"<geometry>\n");
+		if(pos!=NULL){//this bit updates the geometry parameters (size of the hologram and focal length
+			pos=skipLineBreak(pos); //skip to the next line
+			float hh,hw,f,k; //we want three floats; hologram width, hologram height, focal length
+			if(P_SSCANF(pos,"%f, %f, %f, %f",&hw,&hh,&f,&k)==4){ //if we've got 4 numbers
+				if(k>0.0) gpgpu->setGeometry(hw,hh,f,k);
+			}
+		}
+
+		pos=strstr(buffer,"<aspect>\n");
+		if(pos!=NULL){//if we've been asked to move, do so
+			pos=skipLineBreak(pos); //skip to the next line
+			float physical,screen; //we want two floats; the physical aspect of the hologram, and the pixel aspect
+			if(P_SSCANF(pos,"%f, %f",&physical,&screen)==2){ //if we've got 2 numbers
+				if(physical>0.0) gpgpu->setPhysicalAspect(physical);
+				if(screen>0.0) gpgpu->setScreenAspect(screen);
+			}
+		}
+
+		pos=strstr(buffer,"<totalA>\n");
+		if(pos!=NULL){//if it's there
+			pos=skipLineBreak(pos); //skip to the next line
+			float totalA; //we want one float; the total intensity
+			if(P_SSCANF(pos,"%f",&totalA)==1){ //if we've got 1 numbers
+				if(totalA>=0.0) gpgpu->setTotalA(totalA);
+			}
+		}
+
+		pos=strstr(buffer,"<na_smoothness>\n");
+		if(pos!=NULL){//if it's there
+			pos=skipLineBreak(pos); //skip to the next line
+			float nasm; //we want one float; the total intensity
+			if(P_SSCANF(pos,"%f",&nasm)==1){ //if we've got 1 numbers
+				gpgpu->setNASmoothness(nasm);
+			}
+		}
+
+		pos=strstr(buffer,"<window_rect>\n");
+		if(pos!=NULL){//if we've been asked to move, do so
+			pos=skipLineBreak(pos); //skip to the next line
+			int x,y,w,h,m; //get the blazing table array
+			if(P_SSCANF(pos,"%d, %d, %d, %d",&x,&y,&w,&h)==4){ //if we've got four numbers
 				moveAndSizeWindow(x,y,w,h);
-			}else if(P_SSCANF(tagEnd + 1,"all monitor %d",&m)==1){ //if we've got a request for fullscreen
+			}else if(P_SSCANF(pos,"all monitor %d",&m)==1){ //if we've got a request for fullscreen
 				fullScreen(m);
 			}
 		}
-		if(find_tag(dataStart, "network_reply", NULL, &tagEnd, NULL)){
-			int y;
-			if(P_SSCANF(tagEnd+1, " %d", &y) == 1) networkReply = y==1; //if we've got a number, set whether or not we reply to packets
-		}
-		if(find_tag(dataStart, "swap_buffers_at_refresh_rate", NULL, &tagEnd, NULL)){
-			int y;
-			if(P_SSCANF(tagEnd+1, " %d", &y) == 1) setSwapBuffersAtRefreshRate(y); //whether or not updates are locked to screen refreshes
-		}
-		
-		if(find_tag(dataStart, "shader_source", &pos, &tagEnd, &valEnd)){
-			//the <shader_source> tag causes a recompilation of the fragment shader, using the contents of the tag as the new shader program.
-			char * shaderSourceStart = skipLineBreak(tagEnd);
-			char * shaderSourceEnd = valEnd;
 
-			size_t shaderLength = shaderSourceEnd - shaderSourceStart;
-			char * shaderSource = (char *) malloc(shaderLength+1); //yes, I could probably just whack a null character into the buffer, but this is nicer...
-			memcpy(shaderSource, shaderSourceStart, shaderLength);
-			shaderSource[shaderLength]='\0';
-			gpgpu->recompileShader((const char **) &shaderSource);
-			free(shaderSource);
+		pos=strstr(buffer,"<centre>\n");
+		if(pos!=NULL){//if we've been asked to move, do so
+			pos=skipLineBreak(pos); //skip to the next line
+			float x,y; //get the x and y coords of the centre
+			if(P_SSCANF(pos,"%f, %f",&x,&y)==2){ //if we've got 2 numbers
+				gpgpu->setCentre(x,y);
+			}
 		}
+
+		pos=strstr(buffer,"<network_reply>\n");
+		if(pos!=NULL){//set up responding to packets
+			pos=skipLineBreak(pos); //skip to the next line
+			int y; //whether or not we reply
+			if(P_SSCANF(pos,"%d",&y)==1){ //if we've got a number
+				networkReply = y==1;
+			}
+		}
+
 	}
-    gpgpu->update();
-	return 0;
+	return n;
+}
+
+
+// this writes a packet to a file, which will be read on startup.  This can set the blazing function and other options.
+void saveBufferToDefaultsFile(char* buffer, int messagelength){
+	FILE* f=NULL;
+#ifdef WIN32
+	if(fopen_s(&f,DEFAULTS_FILENAME,"w+") ==0){
+#else
+	if((f=fopen(DEFAULTS_FILENAME,"w"))!=NULL){
+#endif
+		if(f==NULL) return;
+		fwrite(buffer, sizeof(char),messagelength, f);
+		fclose(f);
+	}
 }
 
 // this function updates the spots from the network.
 int updateSpotsFromNetwork(int timeout){
-	int messagelength=udpServer->receive(buffer, MAX_UDP_BUFFER_LENGTH, timeout, "<data", "</data>"); //try to recieve a packet
+	int n=0, ret=0, messagelength;
+	messagelength=udpServer->receive(buffer, MAX_UDP_BUFFER_LENGTH, timeout, "</data>"); //try to recieve a packet
 
-	if(messagelength>0){ //if we've got something (which starts with <data and ends with </data>),
+	if(messagelength>0){ //if we've got something (which ends with </data>),
+		if(strstr(buffer, "<save")!=NULL){
+			saveBufferToDefaultsFile(buffer,messagelength);
+			gpgpu->dumptofile();
+		}
 		return updateSpotsFromBuffer(buffer, messagelength);
 	}
+	else return 0;
+}
 
-
-	else return -1;
+int updateSpotsFromDefaultsFile(){
+	FILE* f;
+	int messagelength=0;
+#ifdef WIN32
+	if(fopen_s(&f,DEFAULTS_FILENAME,"r+") ==0){
+#else
+	if((f=fopen(DEFAULTS_FILENAME,"r"))!=NULL){
+#endif
+		messagelength=fread(buffer, sizeof(char), MAX_UDP_BUFFER_LENGTH, f);
+		fclose(f);
+	}
+	if(messagelength>0){ //if we've got something,
+		return updateSpotsFromBuffer(buffer, messagelength);
+	}
+	else return 0;
 }
 
 void clearNetworkBacklogAndUpdate(){
@@ -389,14 +360,19 @@ void clearNetworkBacklogAndUpdate(){
 						 //the trick is to use a long(ish) timeout the first time, when there may not be any queued packets,
 						 //and then a really short (<1ms) timeout thereafter, as we're only interested in queued packets, 
 						 //not new ones.  This should keep latency to a minimum.
-		if(n>=0) somebodylovesyou=true; //flag the fact that we've recieved something at least once (because n=0 when we
+		if(n>0) somebodylovesyou=true; //flag the fact that we've recieved something at least once (because n=0 when we
 						 //leave the loop)
 		firstTime=false; //subsequent iterations shouldn't wait as long.
-	}while(n>=0);
-	if(somebodylovesyou) postRedisplay(); //update the screen if we've recieved spot coordinates
-						 //using wGL (windows native openGL), buffer swaps are synced with screen refresh, a Good Thing.
-						 //However, it means this function cannot execute more often than the screen refreshes- 
-						 //usually circa 60Hz.
+	}while(n>0);
+	if(somebodylovesyou){ //postRedisplay(); //update the screen if we've recieved spot coordinates
+		iterationTimer->startRender();
+		gpgpu->update();         //redraw the window using calls to OpenGL
+		iterationTimer->stopRender();
+		iterationTimer->startBufferSwap();
+		gpgpu->getHologramAsU8(hologramBuffer,512,512); //render and save
+		boulderSLM->loadHologram(hologramBuffer);
+		iterationTimer->stopBufferSwap();
+	}
 }
 
 // make sure the area we draw in (+-1 in X and Y) always has the aspect ratio defined in the GPGPU object.
@@ -426,12 +402,19 @@ void graphics_initialize(){
 	}*/ //need to check wgl extensions string instead
 }
 
-/* useful for pop-up debugging...
+void deleteGlobalObjects(){
+	delete boulderSLM;
+	delete udpServer;
+	delete iterationTimer;
+	delete gpgpu;
+	free(hologramBuffer);
+}
 
-				
-#if defined(DEBUG) & defined(WIN32)
-				LPCSTR shaderString = gpgpu->getUniforms(); //the extensions as a const char*
-				CA2W WshaderString(shaderString);
-				MessageBox(windowHandle,WshaderString,_T("Shader Source"),MB_OK);
-#endif
-				*/
+void createGlobalObjects(){
+	//create the objects for GPGPU stuff and network comms
+	gpgpu = new GPGPU(false);
+	udpServer = new UDPServer(PORT);
+	iterationTimer = new IterationTimer(udpServer);
+	boulderSLM = new BoulderSLM();
+	hologramBuffer = (unsigned char *) malloc(512*512);
+}

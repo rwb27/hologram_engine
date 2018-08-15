@@ -1,0 +1,131 @@
+; Project:       PCIe Driver/PCIe Debug
+;
+; File:          PCIeDriver.inf
+;
+; Date:          $Date: 2008-10-29 10:12:52 -0600 (Wed, 29 Oct 2008) $
+;
+; Subversion ID: $Id: PCIeDriver.inf 42 2008-10-29 16:12:52Z taberski_BNS $
+;
+; Modification History:
+;
+; 10/28/08 - KDT - modified /WinDriver_9_21/xilinx/virtex5/bmd/ml555_bmd.inf
+;                  for use with PCIeDriver - changed Device ID to 0x0021 (was 0x0007)
+;                - removed lines associated with MSI (Message Signaled Interrupts)
+;                  Note: I don't know (yet) the validity of doing this, but it \
+;                  "appears" to work!
+;
+; Installation file (.inf) for "ml555_bmd" device
+; Jungo Confidential. Copyright (c) 2008 Jungo.  http://www.jungo.com
+;
+; You can create a customized version of this file
+; by modifying the specified sections.
+;
+; Refer to Windows DDK documentation for more information on INF files
+;
+
+; Version Information
+; -------------------
+[Version]
+Signature="$CHICAGO$"  ; Represents all Windows OS's
+Provider=%jun%
+DriverVer=02/14/2008, 9.2.1
+Class=Jungo
+ClassGuid={c671678c-82c1-43f3-d700-0049433e9a4b}
+; CatalogFile=wd921.cat
+
+; Driver Information
+; ------------------
+[Manufacturer]
+; You may modify the manufacturer name by changing the Mfg variable in the [Strings]
+; section in this INF file.
+%Mfg%=DeviceList,NTamd64
+
+; x86 platform, Win9x, Windows 2000 and later
+[DeviceList]
+;"ml555_bmd"=Install, PCI\VEN_10EE&DEV_0007&SUBSYS_000710EE&REV_00
+"PCIeDriver"=Install, PCI\VEN_10EE&DEV_0021&SUBSYS_002110EE&REV_00
+
+; x64 platform, Windows XP x64 edition and later
+[DeviceList.NTamd64]
+;"ml555_bmd"=Install, PCI\VEN_10EE&DEV_0007&SUBSYS_000710EE&REV_00
+"PCIeDriver"=Install, PCI\VEN_10EE&DEV_0021&SUBSYS_002110EE&REV_00
+
+; Installation Section
+; --------------------
+[Install]  ; Installation script for Windows 98/Me
+CopyFiles=FilesToCopy
+AddReg=UpDateRegistry
+Log_Config=Base1
+
+[Base1]
+IRQConfig=3,4,5,7,9,10,11,14,15
+
+[Install.NT]  ; Installation script for Windows 2000 and later
+CopyFiles=FilesToCopy
+AddReg=UpDateRegistry
+
+[Install.NT.HW]
+AddReg = Install.NT.HW.AddReg
+
+; removed 10/28/08 - KDT
+;[Install.NT.HW.AddReg]
+;HKR, "Interrupt Management", 0x00000010
+;HKR, "Interrupt Management\MessageSignaledInterruptProperties", 0x00000010
+;HKR, "Interrupt Management\MessageSignaledInterruptProperties",MSISupported, 0x10001, 1
+
+[FilesToCopy]
+; To copy windrvr6.sys upon installation remove the ';' from the start of the following line
+;windrvr6.sys ,,,0x40  ; 0x40 == COPYFLG_OVERWRITE_OLDER_ONLY
+
+[ClassInstall]  ; Register a new class in Windows 98/Me
+AddReg=UpDateRegistry
+
+[ClassInstall32]  ; Register a new class in Windows 2000 and later
+AddReg=UpDateRegistry
+
+[UpDateRegistry]
+HKR,,,,Jungo
+HKR,,Icon,,-5
+HKR,,DevLoader,,*ntkern
+HKR,,NTMPDriver,, windrvr6.sys
+
+[ControlFlags]
+ExcludeFromSelect = *  ; Remove all devices listed in this INF file from certain user 
+;    interface displays, from which a user is expected to select a particular device 
+;    for installation.
+
+[PreCopySection]
+HKR,,NoSetupUI,,1
+
+; Defining WinDriver6 Service
+; ---------------------------
+[Install.NT.Services]
+Addservice=WinDriver6, 0x00000002, Service_Info
+
+[Service_Info]
+ServiceType    = 1                  ; SERVICE_KERNEL_DRIVER
+StartType      = 3                  ; SERVICE_DEMAND_START
+ErrorControl   = 1                  ; SERVICE_ERROR_NORMAL
+ServiceBinary  = %10%\System32\Drivers\windrvr6.sys
+
+; Source File Information
+; -----------------------
+[SourceDisksFiles]
+windrvr6.sys=1  ; This indicates that the windrvr6.sys file is located on
+    ; disk number 1 of "Xilinx Installation disks" set.
+
+[SourceDisksNames]
+1="Xilinx Installation Disk",,  ; This indicates that disk number 1
+    ; has the label "Xilinx Installation Disk". The installer will
+    ; search for windrvr6.sys in this disk.
+
+[DestinationDirs]
+DefaultDestDir=10, System32\Drivers  ; The location to which the windrvr6.sys
+    ; will be copied
+
+;---------------------------------------------------------------;
+
+[Strings]
+jun="Jungo LTD."
+Mfg="Xilinx"
+

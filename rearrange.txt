@@ -1,0 +1,16 @@
+Let's re-organise the red tweezers engine a little bit.  Focus on our core competencies and all that.  Presently, we do:
+
+x,y,z, l,phi,intensity for each spot
+restriction of each spot to a specific region on the back aperture (nax,nay,nar)
+zernike modes (first 15 coefficients, minus tip,tilt and piston=12 modes) either per-spot or globally
+line traps, with a generalised line vector in 3D and a specified phase gradient
+amplitude shaping (presently just by graying out), mostly to support the line traps
+
+The core engine should:
+set up the useful geometry parameters (focal length, SLM size, etc. etc.)
+create a basic hologram, with x,y,z,l, phase and intensity for each spot.
+handle the output, possibly with blazing.
+
+we should then be able to switch features on and off, for example NA control, line traps, per-trap Zernike modes, amplitude shaping
+
+or do we want to keep it simpler than this???

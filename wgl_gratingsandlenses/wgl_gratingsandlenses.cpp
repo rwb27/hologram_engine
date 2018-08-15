@@ -1,7 +1,14 @@
+#include "mystdafx.h"
+
+/*
+#include <afxforcelibs.h>
+
 #define WIN32_LEAN_AND_MEAN             // Exclude rarely-used stuff from Windows headers
 // Windows Header Files:
 #include <windows.h>
 #include <AtlBase.h>
+*/
+
 // C RunTime Header Files
 #include <stdlib.h>
 #include <stdio.h>
@@ -12,7 +19,7 @@
 
 // windows-only globals
 HINSTANCE hInstance;							// current instance
-LPCTSTR szTitle = _T("Hologram Engine");
+LPCTSTR szTitle = _T("GLSL Gratings And Lenses");
 HWND windowHandle;		//this gives us a handle on all things graphical
 
 #define GLEW_STATIC 1
@@ -34,21 +41,6 @@ int APIENTRY _tWinMain(HINSTANCE hInstance,
 {
 	UNREFERENCED_PARAMETER(hPrevInstance);
 	UNREFERENCED_PARAMETER(lpCmdLine);
-
-	// allow changing port from command line
-
-	char allCmdLine[256];
-	wcstombs(allCmdLine, lpCmdLine, 256);
-	int portnumber=0;
-	 if(strstr(allCmdLine,"port")){              //change the port we listen on - useful for multiple SLMs
-         sscanf(strstr(allCmdLine,"port"),"port%d",&portnumber);
-         printf("listening on port %d",portnumber);
-	}
-
-	//now we need to convert this to a string
-	char * port = (char *)malloc(8);
-    memcpy(port, PORT, 6); //default port
-    if(portnumber<10000000 && portnumber >0) sprintf(port,"%05d",portnumber);
 
  	// TODO: Place code here.
 	MSG msg;				//we use this for handling and dispatching messages
@@ -85,13 +77,18 @@ int APIENTRY _tWinMain(HINSTANCE hInstance,
 	//using GLEW, make sure the relevant extensions exist
 	graphics_initialize();
 
-	//create the objects for GPGPU stuff and network comms
-	gpgpu = new GPGPU(false);
-	udpServer = new UDPServer(port);
+	createGlobalObjects();
 
 	//display our window
 	ShowWindow(windowHandle,SW_SHOW);
 	UpdateWindow(windowHandle);
+	
+	// Get swap interval function pointer if it exists
+	PFNWGLSWAPINTERVALEXTPROC wglSwapIntervalEXT = (PFNWGLSWAPINTERVALEXTPROC)wglGetProcAddress("wglSwapIntervalEXT");
+	if(wglSwapIntervalEXT != NULL){ 
+		wglSwapIntervalEXT(0);
+		MessageBox(windowHandle,_T("Successfully asked Windows to unsync buffer swaps from vertical retrace"),_T("info"),MB_OK);
+	}
 
 /*	PFNWGLGETEXTENSIONSSTRINGARBPROC wglGetExtensionsStringARB;
 	wglGetExtensionsStringARB = (PFNWGLGETEXTENSIONSSTRINGARBPROC) wglGetProcAddress("wglGetExtensionsStringARB");
@@ -99,7 +96,10 @@ int APIENTRY _tWinMain(HINSTANCE hInstance,
 	//output extensions
 	LPCSTR wglExtensionsString = wglGetExtensionsStringARB(GetDC(windowHandle)); //the extensions as a const char*
 	CA2W WwglExtensionsString(wglExtensionsString);
-	MessageBox(windowHandle,WwglExtensionsString,_T("WGL Extensions"),MB_OK);//*/
+	MessageBox(windowHandle,WwglExtensionsString,_T("WGL Extensions"),MB_OK);*/
+
+	//load settings from hologram_server_settings.rc
+	updateSpotsFromDefaultsFile(); 
 
 	// Main message loop: we alternate listening for network packets with checking the Windows
 	//message queue.  This should ensure minimal latency in recieving the packets, without being
@@ -108,23 +108,27 @@ int APIENTRY _tWinMain(HINSTANCE hInstance,
 	int i=0;
 	while (bRet != 0)
 	{	//fast hologram generation waits for no man!
+//		Sleep(10);
+//		Sleep((int) floor(1000.0f*initialWaitTime));
+		iterationTimer->startIteration();
+		iterationTimer->startNetwork();
 		clearNetworkBacklogAndUpdate(); //this listens for incoming packets 
+		iterationTimer->stopNetwork();
+		iterationTimer->stopIteration();
+		if(i>3){ 
+			if(networkReply) iterationTimer->networkReply();
+		}else{
+			i++;
+		}
 		//(and makes sure we've got no queued packets left) then updates the parameters and refreshes the display.
 		while(PeekMessage(&msg,NULL,0,0,PM_NOREMOVE)>0){ //if there's a message in the queue
 			bRet=GetMessage(&msg,NULL,0,0); //take the message out the queue
 			TranslateMessage(&msg);	//pass the buck
 			DispatchMessage(&msg);
 		}
-		if(i>3){ 
-			//if(networkReply) iterationTimer->networkReply(); //TODO make this give a response!
-			if(networkReply){
-				char * replyBuffer = (char *) malloc(9);
-				replyBuffer = "cheers\r\n";
-				udpServer->reply(replyBuffer,7);
-			}
-		}else{
-			i++;
-		}
+		initialWaitTime+= 0.005f*(iterationTimer->smoothedSwapTime() - 0.0005f);
+									//very basic control loop for the initial pause; aim for a swapTime of 500us, with an integrator (!)
+		if(initialWaitTime>0.016 || initialWaitTime<0.0) initialWaitTime=0.0f;
 	}
 
 	return (int) msg.wParam;
@@ -167,10 +171,14 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		InvalidateRect(hWnd,NULL,FALSE);        //remind Windows to ask us to redraw the window
 		break;
 	case WM_PAINT: //we've been asked to redraw the window
+		iterationTimer->startRender();
 		gpgpu->update();         //redraw the window using calls to OpenGL
+		iterationTimer->stopRender();
+		iterationTimer->startBufferSwap();
 		swapBuffersAndWait(hDC); //swap the buffers (NB this function will return after the next screen refresh 
 								 //(rate is usually about 60Hz, so this function can only be executed that often, 
 								 //which is a good thing- but see clearNetworkBacklogAndUpdate().
+		iterationTimer->stopBufferSwap();
 		ValidateRect(hWnd,NULL); //stop the panic
 		break;
 	case WM_DESTROY:
@@ -179,6 +187,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		//Stop OpenGL
 		wglMakeCurrent(hDC,NULL);
 		wglDeleteContext(hRC);
+
+		deleteGlobalObjects();
 
 		PostQuitMessage(0); //quit the application
 		break;

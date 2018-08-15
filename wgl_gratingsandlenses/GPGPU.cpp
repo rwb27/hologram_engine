@@ -9,20 +9,6 @@
 
 #include "GPGPU.h"
 
-#include <string>
-#include <sstream>
-#include <ios>
-using std::string;
-using std::istringstream;
-using std::ios;
-
-
-#ifdef WIN32
-#define P_SSCANF sscanf_s
-#else
-#define P_SSCANF sscanf
-#endif
-
 // This class encapsulates all of the GPGPU functionality of the example.
 GPGPU::GPGPU(bool benchmark) 
 {
@@ -31,24 +17,40 @@ GPGPU::GPGPU(bool benchmark)
 	_iterations=0;
 	_framerate=0.0;
 	_screenAspect=1.0;
+	_physicalAspect=1.0;
+	_xCentre=0.5;
+	_yCentre=0.5;
 	_viewportWidth=512; //this really needs to be set (using reshape()) when we know the window size.
 	_viewportHeight=512;//512 matches the initial constant in wgl_gratingsandlenses.c.
+	_totalA=0.00001;
+	_naSmoothness=0.0;
+	_hologramSize[1]=0.003;
+	_hologramSize[2]=0.003;
+	_focalLength=0.0016;
+	_wavevector=10000000.0;
+
+	// I'm going to initialise the spots array here
+	for(int i=0; i<MAX_N_SPOTS*SPOT_ELEMENTS; i++) _spots[i]=0.0;
+	_nspots=0;
 	
-    #include "source_code.cpp" //this just contains GLSLSource as a string constant (and it gets replaced usually by a string passed in)
-	if(initialiseFragmentShader(&GLSLSource) != 0) exit(1);
-	setUniformTexture(0, (GLubyte *) splashgraphics, 512, 256, 4);
+	// And the blazing table (let it be uniform for now)
+	for(int i=0; i<BLAZING_TABLE_LENGTH; i++) _blazingTable[i]=float(i)/float(BLAZING_TABLE_LENGTH-1); 
+	for(int i=0; i<ZERNIKE_COEFFICIENTS_LENGTH; i++) _zernikeCoefficients[i]=0.0;
+
+	if(initialiseShader() != 0) exit(1);
+	
 }
 
-int GPGPU::initialiseFragmentShader(const char * * shaderSource){
-	//create, compile, link the fragment shader.  Also, parses the uniform variables.
+int GPGPU::initialiseShader(){
 	
 	//lets create the fragment shader and compile it.
 	_programObject = glCreateProgram();
-
-	GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-	glShaderSource(fragmentShader, 1, shaderSource, NULL);
-	glCompileShader(fragmentShader);
-	glAttachShader(_programObject, fragmentShader);
+	
+    #include "source_code.cpp" //this just contains GLSLSource as a string constant
+	_fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
+	glShaderSource(_fragmentShader, 1, &GLSLSource, NULL);
+	glCompileShader(_fragmentShader);
+	glAttachShader(_programObject, _fragmentShader);
 	
 	// Link the shader into a complete GLSL program.
 	glLinkProgram(_programObject);
@@ -59,171 +61,40 @@ int GPGPU::initialiseFragmentShader(const char * * shaderSource){
 		fprintf(stderr, "Filter shader could not be linked :(.\n");
 		return 1;
 	}
-	// Activate our shader
-	glUseProgram(_programObject);
 	
-	parseUniforms(*shaderSource);
-
-	if(fragmentShader) glDeleteShader(fragmentShader);
+	// Get handles on the "uniforms" (inputs) of the program
+	_spotsUniform = glGetUniformLocation(_programObject, "spots");
+	_nUniform = glGetUniformLocation(_programObject, "n");
+	_blazingUniform = glGetUniformLocation(_programObject, "blazing");
+	_zernikeUniform = glGetUniformLocation(_programObject, "zernikeCoefficients");
+	_aspectUniform = glGetUniformLocation(_programObject, "aspect");
+	_centreUniform = glGetUniformLocation(_programObject, "centre");
+	_totalAUniform = glGetUniformLocation(_programObject, "totalA");
+	_naSmoothnessUniform = glGetUniformLocation(_programObject, "nasmoothness");
+	_kUniform = glGetUniformLocation(_programObject, "k"); //this is disabled in GLSL source for now
+	_focalLengthUniform = glGetUniformLocation(_programObject, "f"); //this is disabled in GLSL source for now
+	_hologramSizeUniform = glGetUniformLocation(_programObject, "size"); //this is disabled in GLSL source for now
 	return 0;
-}
-
-int GPGPU::recompileShader(const char ** shaderSource){
-	//recompile the fragment shader (and link, parse uniforms, etc.)
-	if(_programObject) glDeleteProgram(_programObject);
-	return initialiseFragmentShader(shaderSource);
-}
-
-void GPGPU::setUniform(int uniformID,GLfloat * value, size_t length){
-	//this function sets the value of the specified uniform.  The uniform ID is NOT an OpenGL 
-	//handle, it is the index of the uniform in my array of uniforms that gets parsed from the 
-	//shader source.  This ought to be the uniforms in the order they are declared in the 
-	//shader.
-	if(uniformID>_n_uniforms) return;
-	switch(_uniformTypes[uniformID]){
-		case UNIFORM_TYPE_1fv:
-			if(length>_uniformLengths[uniformID]) length=_uniformLengths[uniformID];
-			glUniform1fv(_uniformLocations[uniformID],length,value);
-			break;
-		case UNIFORM_TYPE_2fv:
-			if(length/2>_uniformLengths[uniformID]) length=2*_uniformLengths[uniformID];
-			glUniform2fv(_uniformLocations[uniformID],length/2,value);
-			break;
-		case UNIFORM_TYPE_3fv:
-			if(length/3>_uniformLengths[uniformID]) length=3*_uniformLengths[uniformID];
-			glUniform3fv(_uniformLocations[uniformID],length/3,value);
-			break;
-		case UNIFORM_TYPE_4fv:
-			if(length/4>_uniformLengths[uniformID]) length=4*_uniformLengths[uniformID];
-			glUniform4fv(_uniformLocations[uniformID],length/4,value);
-			break;
-		case UNIFORM_TYPE_1i:
-			if(length>_uniformLengths[uniformID]) length=_uniformLengths[uniformID];
-			glUniform1i(_uniformLocations[uniformID],(int) value[0]);
-			break;
-		case UNIFORM_TYPE_1iv:
-			if(length>_uniformLengths[uniformID]) length=_uniformLengths[uniformID];
-			GLint * ivalue = (GLint *) malloc(sizeof(GLint)*length);
-			for(unsigned int i=0; i<length; i++) ivalue[i]=(int)value[i]; //convert to integer
-			free(ivalue);
-			break;
-	}
-}
-
-void GPGPU::setUniformTexture(int uniformID, GLfloat * value, size_t width, size_t height, size_t components){
-	//set a texture corresponding to a uniform
-	if(uniformID > _n_uniforms) return;
-	if(_uniformTypes[uniformID] != UNIFORM_TYPE_sampler2D) return;
-	
-	glActiveTexture(GL_TEXTURE0 + _textureUnits[uniformID]);                       //pick the right slot
-	glBindTexture(GL_TEXTURE_2D, _textureNames[uniformID]);                        //bind our texture (i.e. select that one)
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width, height, 0, GL_RGBA, GL_FLOAT, value);  //load the data into the texture
-
-	glUniform1i(_uniformLocations[uniformID], _textureUnits[uniformID]);           //ok, so this really only needs to be done once, but...
-}
-void GPGPU::setUniformTexture(int uniformID, GLubyte * value, size_t width, size_t height, size_t components){
-	//set a texture corresponding to a uniform
-	if(uniformID > _n_uniforms) return;
-	if(_uniformTypes[uniformID] != UNIFORM_TYPE_sampler2D) return;
-	
-	glActiveTexture(GL_TEXTURE0 + _textureUnits[uniformID]);                       //pick the right slot
-	glBindTexture(GL_TEXTURE_2D, _textureNames[uniformID]);                        //bind our texture (i.e. select that one)
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, value);  //load the data into the texture
-
-	glUniform1i(_uniformLocations[uniformID], _textureUnits[uniformID]);           //ok, so this really only needs to be done once, but...
-}
-
-
-void GPGPU::setUniform(const char * uniformName, float * value, size_t length){
-	//disused- this function sets a uniform keyed on its name rather than its index.
-	//it has not been heavily tested, and if there are variable names that are prefixes 
-	//(e.g. one called spots and one called spotsa) then there is no guarantee it will
-	//work!
-	const char * pos = strstr(_uniformNames, uniformName); //find the name
-	if(pos == NULL) return;
-	pos += strlen(uniformName)+1; //skip the name and the space
-	int uniformID=-1;
-	sscanf(pos,"%03d",&uniformID);
-	if(uniformID<0) return;
-	setUniform(uniformID, value, length);
-}
-
-
-void GPGPU::parseUniforms(const char * shaderSource){
-	// Get handles on the "uniforms" (inputs) of the shaderprogram
-	int numberOfSamplers = 0;
-
-	const char * pos = shaderSource;       //find the start and end of the source code
-	const char * endpos = pos + strlen(pos);
-	
-	_n_uniforms=0;  //scan through the text and find where 
-	_uniformNames[0]='\0'; //forget about the uniforms!
-	const char * lineend = pos;
-	while(lineend !=NULL && (pos=strstr(lineend,"uniform")) != NULL && lineend<endpos && _n_uniforms<MAX_N_UNIFORMS){ 
-			//go through the uniform declarations in the GLSL source and take note of them
-			//uniform declarations should be one per line, which is why we look for the next "uniform" after the line end
-		lineend = strpbrk(pos,"\n\r\f;");      //find the end of this line
-		pos += 7;                             //skip past "uniform"
-		pos += strspn(pos," \t");             //skip whitespace after the "uniform"
-		UniformType t = UNIFORM_TYPE_INVALID;
-		if(strstr(pos,"float") == pos) t=UNIFORM_TYPE_1fv;
-		if(strstr(pos,"vec2") == pos) t=UNIFORM_TYPE_2fv;
-		if(strstr(pos,"vec3") == pos) t=UNIFORM_TYPE_3fv;
-		if(strstr(pos,"vec4") == pos) t=UNIFORM_TYPE_4fv;
-		if(strstr(pos,"int") == pos) t=UNIFORM_TYPE_1iv;
-		if(strstr(pos,"sampler2D") == pos) t=UNIFORM_TYPE_sampler2D;
-
-		if(t!=UNIFORM_TYPE_INVALID){
-			//the next four lines skip the whitespace after the type, placing pos at the start of the variable name.
-			pos = strpbrk(pos," \t");				//skip whitespace after the type declaration
-			if(pos==NULL || pos>=lineend) continue;//skip to next uniform declaration on error
-			pos += strspn(pos," \t");
-			if(pos==NULL || pos>=lineend) continue;//skip to next uniform declaration on error
-
-			int nlen = (int)strpbrk(pos," \t;[=") - (int)pos; //find the length of the name
-			if(strpbrk(pos," \t;[")==NULL || strpbrk(pos," \t;[") > lineend) continue;
-
-			char * name = _uniformNames + strlen(_uniformNames);
-			assert(strlen(_uniformNames)+nlen+10 < MAX_N_UNIFORMS*32); //avoid buffer overflow by crashing (!)
-			memcpy((void *)name,pos,nlen);
-			name[nlen]='\0';//terminated
-
-			size_t length=1;                    //if we find a [, check the variable's length
-			if(pos[nlen]=='[') P_SSCANF(pos+nlen,"[%d]",&length);
-
-			if(t==UNIFORM_TYPE_1iv && length==1) t=UNIFORM_TYPE_1i;
-
-			_uniformTypes[_n_uniforms]=t;
-			_uniformLengths[_n_uniforms]=length;
-			_uniformLocations[_n_uniforms]=glGetUniformLocation(_programObject,name);
-
-			name[nlen]=' ';
-			sprintf(name+nlen," %03d %03d\n",length,_n_uniforms);
-			name[nlen+9]='\0';
-
-			if(t==UNIFORM_TYPE_sampler2D && numberOfSamplers < GL_MAX_TEXTURE_UNITS){
-				//if the uniform expects a texture as argument, we better set one up!!
-				//NB there is a limit on the number of textures we can have- and the above if statement respects it.
-				_textureUnits[_n_uniforms] = numberOfSamplers;  //this is the texture unit ("slot") we will use
-				glActiveTexture(GL_TEXTURE0 + numberOfSamplers);//switch to using said slot
-				glGenTextures(1, &_textureNames[_n_uniforms]);  //generate a name for our texture and store it in the array
-				glBindTexture(GL_TEXTURE_2D, _textureNames[_n_uniforms]);
-				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);//don't interpolate (TODO: work this out from source)
-				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);      //do I even care about texture wrapping? I suspect not...
-				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
-				numberOfSamplers++;
-			}
-			_n_uniforms++;
-		}
-	}
 }
 
 //this renders a quadrilateral using our shader.  It doesn't mess with the size of the viewport, so one pixel on screen=one pixel shaded.
 void GPGPU::update()
 {   
-
-	//uniforms should be passed separately now
+	// Activate our shader
+	glUseProgram(_programObject);
+	
+	// pass the spots array and n to the program
+	glUniform4fv(_spotsUniform, _nspots*SPOT_ELEMENTS/4, _spots);
+	glUniform1i(_nUniform, _nspots);
+	glUniform1fv(_blazingUniform, BLAZING_TABLE_LENGTH, _blazingTable);
+	glUniform4fv(_zernikeUniform, ZERNIKE_COEFFICIENTS_LENGTH/4, _zernikeCoefficients);
+	glUniform1f(_aspectUniform,_physicalAspect);
+	glUniform2f(_centreUniform,_xCentre,_yCentre);
+	glUniform1f(_totalAUniform, float(_totalA)); //disabled in the GLSL source unless you enable amplitude shaping
+	glUniform1f(_naSmoothnessUniform, float(_naSmoothness));
+	glUniform2f(_hologramSizeUniform,_hologramSize[0],_hologramSize[1]);
+	glUniform1f(_focalLengthUniform,_focalLength);
+	glUniform1f(_kUniform,10000000);//_wavevector);
 
 	//now we actually render the thing
 	glClear(GL_COLOR_BUFFER_BIT); //make sure there's no junk (I had wierd stuff appearing before)
@@ -239,7 +110,7 @@ void GPGPU::update()
 	glEnd();
 	
 	// disable the filter
-	//glUseProgram(0);
+	glUseProgram(0);
 	
 	//timing
 	if((time(0)-_lastTime)>5.0){
@@ -278,4 +149,129 @@ void GPGPU::reshape(int w, int h){
     gluOrtho2D(-sw, sw, -sh, sh); //we use an orthographic projection, no point in perspective for a 2d surface!
     glMatrixMode(GL_MODELVIEW);     
     glLoadIdentity();    
+}
+
+unsigned char * GPGPU::getHologramAsU8(int width, int height){
+	GLubyte *hologram = NULL;	//pointer to hologram
+	GLint viewport[4];			//place to put the viewport
+	glGetIntegerv(GL_VIEWPORT,viewport);
+	unsigned long numPixels = viewport[2]*viewport[3];
+
+	if(width != viewport[2] || height != viewport[3]) return NULL;
+
+	//RAM it up...
+	hologram = (GLubyte*)malloc(numPixels);//we assume 1 byte per pixel...
+	if(hologram == NULL) return NULL;
+
+	//set up transfer settings
+	glPixelStorei(GL_PACK_ALIGNMENT, 1);
+	glPixelStorei(GL_PACK_ROW_LENGTH, 0);
+	glPixelStorei(GL_PACK_SKIP_ROWS, 0);
+	glPixelStorei(GL_PACK_SKIP_PIXELS, 0);
+
+	//make sure there are no floaters (force a render of the hologram)
+	glFlush();
+    
+    glReadBuffer(GL_BACK);
+    glReadPixels(0, 0, viewport[2], viewport[3], GL_GREEN, GL_UNSIGNED_BYTE, hologram);
+
+
+    return (unsigned char *) hologram; //GLubyte should be the same as unsigned char, i.e. unsigned byte.
+
+}
+
+void GPGPU::getHologramAsU8(unsigned char * hologram, int width, int height){
+	GLint viewport[4];			//place to put the viewport
+	glGetIntegerv(GL_VIEWPORT,viewport);
+	unsigned long numPixels = viewport[2]*viewport[3];
+
+	if(width != viewport[2] || height != viewport[3]) return;
+
+	//RAM it up...
+	//hologram = (GLubyte*)malloc(numPixels);//we assume 1 byte per pixel... in this version, ram is allocated externally.
+	if(hologram == NULL) return;
+
+	//set up transfer settings
+	glPixelStorei(GL_PACK_ALIGNMENT, 1);
+	glPixelStorei(GL_PACK_ROW_LENGTH, 0);
+	glPixelStorei(GL_PACK_SKIP_ROWS, 0);
+	glPixelStorei(GL_PACK_SKIP_PIXELS, 0);
+
+	//make sure there are no floaters (force a render of the hologram)
+	glFlush();
+    
+    glReadBuffer(GL_BACK);
+    glReadPixels(0, 0, viewport[2], viewport[3], GL_GREEN, GL_UNSIGNED_BYTE, hologram);
+
+
+    //return (unsigned char *) hologram; //GLubyte should be the same as unsigned char, i.e. unsigned byte.
+
+}
+
+void GPGPU::dumptofile(){
+
+	////////////////////////////////////////////////////////////////////
+	// Capture the current viewport and save it as a targa file.
+	// Be sure and call SwapBuffers for double buffered contexts or
+	// glFinish for single buffered contexts before calling this function.
+	// Returns 0 if an error occurs, or 1 on success.
+    FILE *pFile;                // File pointer
+    unsigned long lImageSize;   // Size in bytes of image
+    GLubyte	*pBits = NULL;      // Pointer to bits
+    GLint iViewport[4];         // Viewport in pixels
+    GLenum lastBuffer;          // Storage for the current read buffer setting
+    
+	// Get the viewport dimensions
+	glGetIntegerv(GL_VIEWPORT, iViewport);
+	
+    // How big is the image going to be (targas are tightly packed)
+	lImageSize = iViewport[2] * 1 * iViewport[3];	
+	
+    // Allocate block. If this doesn't work, go home
+    pBits = (GLubyte *)malloc(lImageSize);
+    if(pBits == NULL)
+        return;
+	
+    // Read bits from color buffer
+    glPixelStorei(GL_PACK_ALIGNMENT, 1);
+	glPixelStorei(GL_PACK_ROW_LENGTH, 0);
+	glPixelStorei(GL_PACK_SKIP_ROWS, 0);
+	glPixelStorei(GL_PACK_SKIP_PIXELS, 0);
+
+	glFlush();
+    
+    // Get the current read buffer setting and save it. Switch to
+    // the front buffer and do the read operation. Finally, restore
+    // the read buffer state
+    glGetIntegerv(GL_READ_BUFFER, (GLint *)&lastBuffer);
+    glReadBuffer(GL_BACK);
+    glReadPixels(0, 0, iViewport[2], iViewport[3], GL_GREEN, GL_UNSIGNED_BYTE, pBits);
+    glReadBuffer(lastBuffer);
+    
+    // Attempt to open the file
+	if(fopen_s(&pFile,"test.txt","w+") !=0){
+        free(pBits);    // Free buffer and return error
+        return;
+		}
+	
+    // Write the header
+    //fwrite(&tgaHeader, sizeof(TGAHEADER), 1, pFile);
+    
+    // Write the image data
+    //fwrite(pBits, sizeof(GLubyte), lImageSize, pFile);
+	for(int i=0; i<iViewport[3]; i++){
+		for(int j=0; j<iViewport[2]; j++){
+			fprintf(pFile,"%03d ",pBits[i*iViewport[2]+j]);
+		}
+		fprintf(pFile,"\n");
+	}
+	
+
+    // Free temporary buffer and close the file
+    free(pBits);    
+    fclose(pFile);
+    
+    // Success!
+    return;
+
 }

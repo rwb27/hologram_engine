@@ -86,7 +86,7 @@ UDPServer::~UDPServer(){
 #endif
 }
 	
-int UDPServer::receive(char* buffer, int buffer_length, int timeout_usec, char* start, char* terminator){
+int UDPServer::receive(char* buffer, int buffer_length, int timeout_usec, char* terminator){
 	/*
 	 * This function listens for timeout_usec microseconds on all the IP addresses we can bind to, and puts the first packet it
 	 * finds into the buffer.
@@ -126,20 +126,13 @@ int UDPServer::receive(char* buffer, int buffer_length, int timeout_usec, char* 
 			packet_length = recvfrom(last_socket_fd, buffer+message_length, buffer_length-message_length-1, 0, (struct sockaddr*) &client_address, &client_address_length);
 			ret = (packet_length>0)?0:-1;
 			DIE_ON_ERROR("Problems recieving packet.");
-
-			if(strstr(buffer, start) != buffer){
-				return -1; //not interested in packets that don't start correctly
-			}
+			
 			message_length+=packet_length;
 			buffer[message_length]='\0';
-		}while(strstr(buffer + message_length - strlen(terminator) - 8, terminator)==NULL && message_length<(buffer_length-1));
-		  //check the message finishes with the terminator specified (this is faster than just strstr, and more resistant to binary junk)
+		}while(strstr(buffer,terminator)==NULL && message_length<(buffer_length-1));
+		
 		buffer[message_length]='\0'; //terminated.
 		
-		if(strstr(buffer + message_length - strlen(terminator) - 8, terminator)==NULL){
-			return -1; //bad packets = no good...
-		}
-
 		return message_length;
 	}else{
 		return 0;

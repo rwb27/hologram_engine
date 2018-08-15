@@ -1,0 +1,19 @@
+0	0	1
+
+1	-1	x
+1	1	y
+
+2	-2	2xy
+2	0	-2(xx+yy)
+2	2	yy-xx
+
+3	-3	3xyy-xxx
+3	-1	3xxx+3xyy-2x
+3	1	3xyy+3yyy-2y
+3	3	-3xxy+yyy
+
+4	-4	-4xxxy+4xyyy
+4	-2	8xxxy+8xyyy-6xy
+4	0	6xxxx+12xxyy+6yyyy-6xx-6yy+1
+4	2	
+4	4

@@ -21,7 +21,10 @@
 			OutputDirectory="$(SolutionDir)$(ConfigurationName)"
 			IntermediateDirectory="$(ConfigurationName)"
 			ConfigurationType="1"
+			UseOfMFC="0"
+			UseOfATL="0"
 			CharacterSet="1"
+			WholeProgramOptimization="0"
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
@@ -41,6 +44,7 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
+				AdditionalIncludeDirectories="E:\OpenGL\red_tweezers\trunk_boulder\PCIeFiles"
 				PreprocessorDefinitions="WIN32;_DEBUG;_WINDOWS"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
@@ -60,89 +64,13 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="opengl32.lib glu32.lib Ws2_32.lib glew32s.lib"
+				AdditionalDependencies="opengl32.lib glu32.lib Ws2_32.lib glew32s.lib PCIeBoard.lib"
 				LinkIncremental="2"
+				AdditionalLibraryDirectories="E:\OpenGL\red_tweezers\trunk_boulder\PCIeFiles"
 				IgnoreAllDefaultLibraries="false"
 				IgnoreDefaultLibraryNames="libc"
 				GenerateDebugInformation="true"
 				SubSystem="2"
-				TargetMachine="1"
-			/>
-			<Tool
-				Name="VCALinkTool"
-			/>
-			<Tool
-				Name="VCManifestTool"
-			/>
-			<Tool
-				Name="VCXDCMakeTool"
-			/>
-			<Tool
-				Name="VCBscMakeTool"
-			/>
-			<Tool
-				Name="VCFxCopTool"
-			/>
-			<Tool
-				Name="VCAppVerifierTool"
-			/>
-			<Tool
-				Name="VCPostBuildEventTool"
-			/>
-		</Configuration>
-		<Configuration
-			Name="Release-old|Win32"
-			OutputDirectory="$(SolutionDir)$(ConfigurationName)"
-			IntermediateDirectory="$(ConfigurationName)"
-			ConfigurationType="1"
-			CharacterSet="1"
-			WholeProgramOptimization="1"
-			>
-			<Tool
-				Name="VCPreBuildEventTool"
-			/>
-			<Tool
-				Name="VCCustomBuildTool"
-			/>
-			<Tool
-				Name="VCXMLDataGeneratorTool"
-			/>
-			<Tool
-				Name="VCWebServiceProxyGeneratorTool"
-			/>
-			<Tool
-				Name="VCMIDLTool"
-			/>
-			<Tool
-				Name="VCCLCompilerTool"
-				Optimization="2"
-				EnableIntrinsicFunctions="true"
-				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS"
-				RuntimeLibrary="0"
-				EnableFunctionLevelLinking="true"
-				UsePrecompiledHeader="0"
-				WarningLevel="3"
-				DebugInformationFormat="3"
-			/>
-			<Tool
-				Name="VCManagedResourceCompilerTool"
-			/>
-			<Tool
-				Name="VCResourceCompilerTool"
-			/>
-			<Tool
-				Name="VCPreLinkEventTool"
-			/>
-			<Tool
-				Name="VCLinkerTool"
-				AdditionalDependencies="opengl32.lib glu32.lib Ws2_32.lib glew32s.lib user32.lib"
-				Version="1.0"
-				LinkIncremental="1"
-				IgnoreDefaultLibraryNames="libc"
-				GenerateDebugInformation="true"
-				SubSystem="2"
-				OptimizeReferences="2"
-				EnableCOMDATFolding="2"
 				TargetMachine="1"
 			/>
 			<Tool
@@ -173,6 +101,7 @@
 			IntermediateDirectory="$(ConfigurationName)"
 			ConfigurationType="1"
 			CharacterSet="1"
+			WholeProgramOptimization="0"
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
@@ -192,12 +121,11 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="2"
-				EnableIntrinsicFunctions="true"
-				WholeProgramOptimization="false"
+				EnableIntrinsicFunctions="false"
+				AdditionalIncludeDirectories="E:\OpenGL\red_tweezers\trunk_boulder\PCIeFiles"
 				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS"
-				MinimalRebuild="true"
-				BasicRuntimeChecks="0"
 				RuntimeLibrary="0"
+				EnableFunctionLevelLinking="true"
 				UsePrecompiledHeader="0"
 				WarningLevel="3"
 				DebugInformationFormat="3"
@@ -213,14 +141,15 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="opengl32.lib glu32.lib Ws2_32.lib glew32s.lib"
-				Version="1.4"
+				AdditionalDependencies="opengl32.lib glu32.lib Ws2_32.lib glew32s.lib PCIeBoard.lib"
+				Version="1.0"
 				LinkIncremental="1"
-				IgnoreAllDefaultLibraries="false"
+				AdditionalLibraryDirectories="E:\OpenGL\red_tweezers\trunk_boulder\PCIeFiles"
 				IgnoreDefaultLibraryNames="libc"
 				GenerateDebugInformation="true"
 				SubSystem="2"
-				LinkTimeCodeGeneration="0"
+				OptimizeReferences="2"
+				EnableCOMDATFolding="2"
 				TargetMachine="1"
 			/>
 			<Tool
@@ -255,18 +184,14 @@
 			UniqueIdentifier="{4FC737F1-C7A5-4376-A066-2A32D752A2FF}"
 			>
 			<File
+				RelativePath=".\BoulderSLM.cpp"
+				>
+			</File>
+			<File
 				RelativePath=".\callbacks.cpp"
 				>
 				<FileConfiguration
 					Name="Debug|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Release-old|Win32"
 					ExcludedFromBuild="true"
 					>
 					<Tool
@@ -306,14 +231,6 @@
 					/>
 				</FileConfiguration>
 				<FileConfiguration
-					Name="Release-old|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
 					Name="Release|Win32"
 					ExcludedFromBuild="true"
 					>
@@ -336,6 +253,10 @@
 			Filter="h;hpp;hxx;hm;inl;inc;xsd"
 			UniqueIdentifier="{93995380-89BD-4b04-88EB-625FBE52EBFB}"
 			>
+			<File
+				RelativePath=".\BoulderSLM.h"
+				>
+			</File>
 			<File
 				RelativePath=".\GPGPU.h"
 				>
