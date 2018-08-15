@@ -44,6 +44,9 @@
     <ClInclude Include="UDPServer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="glew.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="wgl_gratingsandlenses.rc">

@@ -349,6 +349,7 @@
     <ClCompile Include="wgl_gratingsandlenses.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="glew.h" />
     <ClInclude Include="GPGPU.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="UDPServer.h" />

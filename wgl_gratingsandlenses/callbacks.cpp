@@ -15,7 +15,7 @@ using namespace std;
 // openGL
 #define GLEW_STATIC 1
 #ifdef WIN32
-#include <GL/glew.h>
+#include "glew.h"
 #include <gl/gl.h>
 #include <gl/glu.h>
 #else

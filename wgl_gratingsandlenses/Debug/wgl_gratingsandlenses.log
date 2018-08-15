@@ -1,16 +1,35 @@
-﻿Build started 14/08/2018 19:48:24.
-     1>Project "C:\local\dev\red_tweezers\red_tweezers_1_4_release\hologram_engine_source_code\wgl_gratingsandlenses\wgl_gratingsandlenses.vcxproj" on node 2 (Build target(s)).
+﻿Build started 14/08/2018 20:19:46.
+     1>Project "C:\local\dev\hologram_engine\wgl_gratingsandlenses\wgl_gratingsandlenses.vcxproj" on node 2 (Rebuild target(s)).
      1>ClCompile:
          C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\CL.exe /c /ZI /nologo /W3 /WX- /Od /Oy- /D WIN32 /D _DEBUG /D _WINDOWS /D _UNICODE /D UNICODE /Gm /EHsc /RTC1 /MTd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Fo"Debug\\" /Fd"Debug\vc120.pdb" /Gd /TP /analyze- /errorReport:prompt GPGPU.cpp skipline.cpp UDPServer.cpp wgl_gratingsandlenses.cpp
          wgl_gratingsandlenses.cpp
-     1>c:\local\dev\red_tweezers\red_tweezers_1_4_release\hologram_engine_source_code\wgl_gratingsandlenses\wgl_gratingsandlenses.cpp(19): fatal error C1083: Cannot open include file: 'GL/glew.h': No such file or directory
+     1>c:\local\dev\hologram_engine\wgl_gratingsandlenses\callbacks.cpp(226): warning C4996: 'sprintf': This function or variable may be unsafe. Consider using sprintf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 c:\program files (x86)\microsoft visual studio 12.0\vc\include\stdio.h(356) : see declaration of 'sprintf'
+     1>c:\local\dev\hologram_engine\wgl_gratingsandlenses\wgl_gratingsandlenses.cpp(41): warning C4996: 'wcstombs': This function or variable may be unsafe. Consider using wcstombs_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 c:\program files (x86)\microsoft visual studio 12.0\vc\include\stdlib.h(575) : see declaration of 'wcstombs'
+     1>c:\local\dev\hologram_engine\wgl_gratingsandlenses\wgl_gratingsandlenses.cpp(44): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 c:\program files (x86)\microsoft visual studio 12.0\vc\include\stdio.h(304) : see declaration of 'sscanf'
+     1>c:\local\dev\hologram_engine\wgl_gratingsandlenses\wgl_gratingsandlenses.cpp(51): warning C4996: 'sprintf': This function or variable may be unsafe. Consider using sprintf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 c:\program files (x86)\microsoft visual studio 12.0\vc\include\stdio.h(356) : see declaration of 'sprintf'
          UDPServer.cpp
          skipline.cpp
          GPGPU.cpp
-     1>c:\local\dev\red_tweezers\red_tweezers_1_4_release\hologram_engine_source_code\wgl_gratingsandlenses\gpgpu.h(33): fatal error C1083: Cannot open include file: 'GL/glew.h': No such file or directory
+     1>c:\local\dev\hologram_engine\wgl_gratingsandlenses\gpgpu.cpp(146): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 c:\program files (x86)\microsoft visual studio 12.0\vc\include\stdio.h(304) : see declaration of 'sscanf'
+     1>c:\local\dev\hologram_engine\wgl_gratingsandlenses\gpgpu.cpp(201): warning C4996: 'sprintf': This function or variable may be unsafe. Consider using sprintf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 c:\program files (x86)\microsoft visual studio 12.0\vc\include\stdio.h(356) : see declaration of 'sprintf'
          Generating Code...
-     1>Done Building Project "C:\local\dev\red_tweezers\red_tweezers_1_4_release\hologram_engine_source_code\wgl_gratingsandlenses\wgl_gratingsandlenses.vcxproj" (Build target(s)) -- FAILED.
+       ResourceCompile:
+         C:\Program Files (x86)\Windows Kits\8.1\bin\x86\rc.exe /D _UNICODE /D UNICODE /l"0x0409" /nologo /fo"Debug\wgl_gratingsandlenses.res" wgl_gratingsandlenses.rc 
+       Link:
+         C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\link.exe /ERRORREPORT:PROMPT /OUT:"C:\local\dev\hologram_engine\Debug\wgl_gratingsandlenses.exe" /INCREMENTAL /NOLOGO opengl32.lib glu32.lib Ws2_32.lib glew32s.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /NODEFAULTLIB:libc /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /DEBUG /PDB:"C:\local\dev\hologram_engine\Debug\wgl_gratingsandlenses.pdb" /SUBSYSTEM:WINDOWS /TLBID:1 /DYNAMICBASE /NXCOMPAT /IMPLIB:"C:\local\dev\hologram_engine\Debug\wgl_gratingsandlenses.lib" /MACHINE:X86 /SAFESEH Debug\wgl_gratingsandlenses.res
+         Debug\GPGPU.obj
+         Debug\skipline.obj
+         Debug\UDPServer.obj
+         Debug\wgl_gratingsandlenses.obj
+     1>LINK : fatal error LNK1104: cannot open file 'glew32s.lib'
+     1>Done Building Project "C:\local\dev\hologram_engine\wgl_gratingsandlenses\wgl_gratingsandlenses.vcxproj" (Rebuild target(s)) -- FAILED.
 
 Build FAILED.
 
-Time Elapsed 00:00:02.61
+Time Elapsed 00:00:02.34
