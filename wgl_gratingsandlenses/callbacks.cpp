@@ -36,7 +36,7 @@ using namespace std;
 #include "UDPServer.h"
 
 #ifdef BNS_PCIE
-#include <Blink_SDK.h>
+#include <Blink_C_wrapper.h>
 #endif
 
 // constants
@@ -48,7 +48,6 @@ using namespace std;
 GPGPU  *gpgpu;
 UDPServer *udpServer;
 #ifdef BNS_PCIE
-Blink_SDK *blink_sdk;
 int bns_board_number = 1;
 #endif BNS_PCIE
 //IterationTimer *iterationTimer;
@@ -205,21 +204,20 @@ cleanup:
 #ifdef BNS_PCIE
 
 bool setupBNS(){
-	int board_number;
 	// Construct a Blink_SDK instance with Overdrive capability.
-	unsigned int bits_per_pixel = 12U;
+	unsigned int bits_per_pixel = 8U;
 	bool         is_nematic_type = true;
 	bool         RAM_write_enable = true;
 	bool         use_GPU_if_available = true;
 
 	unsigned int n_boards_found = 0U;
-	bool         constructed_okay = true;
+	int         constructed_okay = 1;
 
-	blink_sdk = new Blink_SDK(bits_per_pixel, &n_boards_found,
-		&constructed_okay, is_nematic_type, RAM_write_enable,
-		use_GPU_if_available, 10U, 0);
+	Create_SDK(bits_per_pixel, &n_boards_found,
+		&constructed_okay, is_nematic_type, RAM_write_enable, use_GPU_if_available, 10U, 0);
 
 	//TODO: load the LUT here??
+	Load_linear_LUT(bns_board_number);
 
 	// Check that everything started up successfully.
 	return constructed_okay;
@@ -236,7 +234,7 @@ void copyHologramToBNS(){
 	
 	bool ExternalTrigger = false;
 	bool OutputPulse = false;
-	blink_sdk->Write_image(bns_board_number, image, numPixels, ExternalTrigger, OutputPulse, 5000);
+	Write_image(bns_board_number, image, numPixels, ExternalTrigger, OutputPulse, 5000);
 
 	goto cleanup;
 error:

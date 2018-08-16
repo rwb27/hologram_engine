@@ -1,16 +1,53 @@
-﻿Build started 15/08/2018 23:53:58.
-     1>Project "C:\local\dev\hologram_engine\wgl_gratingsandlenses\wgl_gratingsandlenses.vcxproj" on node 2 (Build target(s)).
-     1>Link:
-         C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\link.exe /ERRORREPORT:PROMPT /OUT:"C:\local\dev\hologram_engine\Release\wgl_gratingsandlenses.exe" /VERSION:"1.4" /INCREMENTAL:NO /NOLOGO Blink_SDK.lib opengl32.lib glu32.lib Ws2_32.lib glew32s.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /NODEFAULTLIB:libc /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /PDB:"C:\local\dev\hologram_engine\Release\wgl_gratingsandlenses.pdb" /SUBSYSTEM:WINDOWS /TLBID:1 /DYNAMICBASE /NXCOMPAT /IMPLIB:"C:\local\dev\hologram_engine\Release\wgl_gratingsandlenses.lib" /MACHINE:X86 /SAFESEH Release\wgl_gratingsandlenses.res
+﻿Build started 16/08/2018 01:26:57.
+     1>Project "C:\local\dev\hologram_engine\wgl_gratingsandlenses\wgl_gratingsandlenses.vcxproj" on node 2 (Rebuild target(s)).
+     1>ClCompile:
+         C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\x86_amd64\CL.exe /c /Zi /nologo /W3 /WX- /O2 /Oi /D BNS_PCIE /D WIN32 /D NDEBUG /D _WINDOWS /D _UNICODE /D UNICODE /Gm- /EHsc /MT /GS /fp:precise /Zc:wchar_t /Zc:forScope /Fo"Release\\" /Fd"Release\vc120.pdb" /Gd /TP /errorReport:prompt GPGPU.cpp skipline.cpp UDPServer.cpp wgl_gratingsandlenses.cpp
+         GPGPU.cpp
+     1>GPGPU.cpp(86): warning C4267: 'argument' : conversion from 'size_t' to 'GLsizei', possible loss of data
+     1>GPGPU.cpp(90): warning C4267: 'argument' : conversion from 'size_t' to 'GLsizei', possible loss of data
+     1>GPGPU.cpp(94): warning C4267: 'argument' : conversion from 'size_t' to 'GLsizei', possible loss of data
+     1>GPGPU.cpp(98): warning C4267: 'argument' : conversion from 'size_t' to 'GLsizei', possible loss of data
+     1>GPGPU.cpp(120): warning C4267: 'argument' : conversion from 'size_t' to 'GLsizei', possible loss of data
+     1>GPGPU.cpp(131): warning C4267: 'argument' : conversion from 'size_t' to 'GLsizei', possible loss of data
+     1>GPGPU.cpp(146): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : see declaration of 'sscanf'
+     1>GPGPU.cpp(201): warning C4996: 'sprintf': This function or variable may be unsafe. Consider using sprintf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\include\stdio.h(356) : see declaration of 'sprintf'
+         skipline.cpp
+         UDPServer.cpp
+     1>UDPServer.cpp(40): warning C4244: '=' : conversion from 'SOCKET' to 'int', possible loss of data
+     1>UDPServer.cpp(46): warning C4267: 'argument' : conversion from 'size_t' to 'int', possible loss of data
+         wgl_gratingsandlenses.cpp
+     1>c:\local\dev\hologram_engine\wgl_gratingsandlenses\callbacks.cpp(165): warning C4996: '_snprintf': This function or variable may be unsafe. Consider using _snprintf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\include\stdio.h(346) : see declaration of '_snprintf'
+     1>c:\local\dev\hologram_engine\wgl_gratingsandlenses\callbacks.cpp(173): warning C4018: '>' : signed/unsigned mismatch
+     1>c:\local\dev\hologram_engine\wgl_gratingsandlenses\callbacks.cpp(182): warning C4244: 'argument' : conversion from '__int64' to 'int', possible loss of data
+     1>c:\local\dev\hologram_engine\wgl_gratingsandlenses\callbacks.cpp(199): warning C4267: 'argument' : conversion from 'size_t' to 'int', possible loss of data
+     1>c:\local\dev\hologram_engine\wgl_gratingsandlenses\callbacks.cpp(223): warning C4800: 'int' : forcing value to bool 'true' or 'false' (performance warning)
+     1>c:\local\dev\hologram_engine\wgl_gratingsandlenses\callbacks.cpp(242): warning C4267: 'argument' : conversion from 'size_t' to 'int', possible loss of data
+     1>c:\local\dev\hologram_engine\wgl_gratingsandlenses\callbacks.cpp(326): warning C4244: 'initializing' : conversion from '__int64' to 'int', possible loss of data
+     1>c:\local\dev\hologram_engine\wgl_gratingsandlenses\callbacks.cpp(329): warning C4996: 'sprintf': This function or variable may be unsafe. Consider using sprintf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\include\stdio.h(356) : see declaration of 'sprintf'
+     1>wgl_gratingsandlenses.cpp(41): warning C4996: 'wcstombs': This function or variable may be unsafe. Consider using wcstombs_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\include\stdlib.h(575) : see declaration of 'wcstombs'
+     1>wgl_gratingsandlenses.cpp(44): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : see declaration of 'sscanf'
+     1>wgl_gratingsandlenses.cpp(51): warning C4996: 'sprintf': This function or variable may be unsafe. Consider using sprintf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\include\stdio.h(356) : see declaration of 'sprintf'
+         Generating Code...
+     1>c:\local\dev\hologram_engine\wgl_gratingsandlenses\callbacks.cpp(501): warning C4715: 'updateSpotsFromNetwork' : not all control paths return a value
+       ResourceCompile:
+         C:\Program Files (x86)\Windows Kits\8.1\bin\x86\rc.exe /D _UNICODE /D UNICODE /l"0x0409" /nologo /fo"Release\wgl_gratingsandlenses.res" wgl_gratingsandlenses.rc 
+       Link:
+         C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\x86_amd64\link.exe /ERRORREPORT:PROMPT /OUT:"C:\local\dev\hologram_engine\Release\wgl_gratingsandlenses.exe" /VERSION:"1.4" /INCREMENTAL:NO /NOLOGO Blink_C_wrapper.lib opengl32.lib glu32.lib Ws2_32.lib glew32s.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /NODEFAULTLIB:libc /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /DEBUG /PDB:"C:\local\dev\hologram_engine\Release\wgl_gratingsandlenses.pdb" /SUBSYSTEM:WINDOWS /TLBID:1 /DYNAMICBASE /NXCOMPAT /IMPLIB:"C:\local\dev\hologram_engine\Release\wgl_gratingsandlenses.lib" /MACHINE:X64 Release\wgl_gratingsandlenses.res
          Release\GPGPU.obj
          Release\skipline.obj
          Release\UDPServer.obj
          Release\wgl_gratingsandlenses.obj
-     1>wgl_gratingsandlenses.obj : error LNK2019: unresolved external symbol "public: __thiscall Blink_SDK::Blink_SDK(unsigned int,unsigned int *,bool *,bool,bool,bool,unsigned int,char const *)" (??0Blink_SDK@@QAE@IPAIPA_N_N22IPBD@Z) referenced in function "bool __cdecl setupBNS(void)" (?setupBNS@@YA_NXZ)
-     1>wgl_gratingsandlenses.obj : error LNK2019: unresolved external symbol "public: bool __thiscall Blink_SDK::Write_image(int,unsigned char const *,unsigned int,bool,bool,unsigned int)" (?Write_image@Blink_SDK@@QAE_NHPBEI_N1I@Z) referenced in function "void __cdecl copyHologramToBNS(void)" (?copyHologramToBNS@@YAXXZ)
-     1>C:\local\dev\hologram_engine\Release\wgl_gratingsandlenses.exe : fatal error LNK1120: 2 unresolved externals
-     1>Done Building Project "C:\local\dev\hologram_engine\wgl_gratingsandlenses\wgl_gratingsandlenses.vcxproj" (Build target(s)) -- FAILED.
+     1>glew32s.lib(glew.obj) : warning LNK4099: PDB 'vc120.pdb' was not found with 'glew32s.lib(glew.obj)' or at 'C:\local\dev\hologram_engine\Release\vc120.pdb'; linking object as if no debug info
+         wgl_gratingsandlenses.vcxproj -> C:\local\dev\hologram_engine\Release\wgl_gratingsandlenses.exe
+     1>Done Building Project "C:\local\dev\hologram_engine\wgl_gratingsandlenses\wgl_gratingsandlenses.vcxproj" (Rebuild target(s)).
 
-Build FAILED.
+Build succeeded.
 
-Time Elapsed 00:00:00.28
+Time Elapsed 00:00:02.68
