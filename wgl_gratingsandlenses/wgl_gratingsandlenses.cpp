@@ -35,6 +35,12 @@ int APIENTRY _tWinMain(HINSTANCE hInstance,
 	UNREFERENCED_PARAMETER(hPrevInstance);
 	UNREFERENCED_PARAMETER(lpCmdLine);
 
+	// Allocate a console so we get debug output
+	AllocConsole();
+	freopen("CONIN$", "r", stdin);
+	freopen("CONOUT$", "w", stdout);
+	freopen("CONOUT$", "w", stderr);
+
 	// allow changing port from command line
 
 	char allCmdLine[256];
@@ -91,7 +97,6 @@ int APIENTRY _tWinMain(HINSTANCE hInstance,
 #ifdef BNS_PCIE
 	setupBNS();
 #endif
-
 	//display our window
 	ShowWindow(windowHandle,SW_SHOW);
 	UpdateWindow(windowHandle);

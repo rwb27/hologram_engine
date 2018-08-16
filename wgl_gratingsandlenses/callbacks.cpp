@@ -216,8 +216,11 @@ bool setupBNS(){
 	Create_SDK(bits_per_pixel, &n_boards_found,
 		&constructed_okay, is_nematic_type, RAM_write_enable, use_GPU_if_available, 10U, 0);
 
+	printf("Set up BNS SDK, ok: %d, found %d boards\n", constructed_okay, n_boards_found);
+
 	//TODO: load the LUT here??
 	Load_linear_LUT(bns_board_number);
+	printf("Loaded linear LUT to board %d\n", bns_board_number);
 
 	// Check that everything started up successfully.
 	return constructed_okay;
@@ -231,14 +234,24 @@ void copyHologramToBNS(){
 	unsigned char * image = (unsigned char *)malloc(numPixels);
 	size_t hologram_length = gpgpu->getHologramChannelAsU8((GLubyte *)image, numPixels, GL_GREEN);
 	if (hologram_length != numPixels) goto error;
-	
+	OutputDebugStringA("Preparing to transfer hologram to BNS (have a copy in memory)\n");
+
+	int board_w = Get_image_width(bns_board_number);
+	int board_h = Get_image_height(bns_board_number);
+	if (w != board_w || h != board_h){
+		char msg[256];
+		P_SNPRINTF(msg, 256, "Board is %dx%d, window is %dx%d", board_w, board_h, w, h);
+		OutputDebugStringA(msg);
+	}
 	bool ExternalTrigger = false;
 	bool OutputPulse = false;
 	Write_image(bns_board_number, image, numPixels, ExternalTrigger, OutputPulse, 5000);
+	OutputDebugStringA("Transfer successful!\n");
 
 	goto cleanup;
 error:
 	const char * failmsg = "an error occurred copying the hologram to the BNS SLM";
+	OutputDebugStringA(failmsg);
 	udpServer->reply(failmsg, strlen(failmsg));
 cleanup:
 	free(buffer);
