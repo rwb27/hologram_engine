@@ -36,7 +36,7 @@ using namespace std;
 #include "UDPServer.h"
 
 #ifdef BNS_PCIE
-#include <Blink_C_wrapper.h>
+#include <Blink_SDK.h>
 #endif
 
 // constants
@@ -48,10 +48,11 @@ using namespace std;
 GPGPU  *gpgpu;
 UDPServer *udpServer;
 #ifdef BNS_PCIE
+Blink_SDK * blinkSDK;
 int bns_board_number = 1;
 #endif BNS_PCIE
 //IterationTimer *iterationTimer;
-char buffer[MAX_UDP_BUFFER_LENGTH];
+char udpReceiveBuffer[MAX_UDP_BUFFER_LENGTH];
 bool networkReply=false;
 float initialWaitTime=0.0f; //we wait for a certain amount of time at the start of each iteration to reduce latency
 //(the buffer swap occurs at a certain time, so by leaving things until the last millisecond we can avoid lag)
@@ -159,7 +160,7 @@ void replyWithHologramChannel(GLenum channel){
 	int h = gpgpu->getViewportHeight();
 	int numPixels = w*h;
 	const size_t buffer_length = 512 + numPixels;
-	char * buffer = (char *) malloc(buffer_length);
+	char * buffer = new char[buffer_length];
 	char * pos = buffer; // This keeps track of our current "cursor position" in the buffer
 	char * end = buffer + buffer_length; // We don't want to run over the end of the buffer
 	pos += P_SNPRINTF(buffer, end - pos, "<data>\n<channel width=\"%d\" height=\"%d\" format=\"packedu8\">\n<binary size=\"%d\">", w, h, numPixels);
@@ -198,28 +199,33 @@ error:
 	const char * failmsg = "error returning image channel (probably a potential buffer overflow)";
 	udpServer->reply(failmsg, strlen(failmsg));
 cleanup:
-	free(buffer);
+	delete[] buffer;
 }
 
 #ifdef BNS_PCIE
 
 bool setupBNS(){
 	// Construct a Blink_SDK instance with Overdrive capability.
-	unsigned int bits_per_pixel = 8U;
+	unsigned int bits_per_pixel = 12U;
 	bool         is_nematic_type = true;
 	bool         RAM_write_enable = true;
 	bool         use_GPU_if_available = true;
 
 	unsigned int n_boards_found = 0U;
-	int         constructed_okay = 1;
+	bool         constructed_okay = true;
 
-	Create_SDK(bits_per_pixel, &n_boards_found,
+	blinkSDK = new Blink_SDK(bits_per_pixel, &n_boards_found,
 		&constructed_okay, is_nematic_type, RAM_write_enable, use_GPU_if_available, 10U, 0);
 
 	printf("Set up BNS SDK, ok: %d, found %d boards\n", constructed_okay, n_boards_found);
+	int board_w = blinkSDK->Get_image_width(bns_board_number);
+	int board_h = blinkSDK->Get_image_height(bns_board_number);
+	printf("board %d has image dimensions %dx%d\n", bns_board_number, board_w, board_h);
 
 	//TODO: load the LUT here??
-	Load_linear_LUT(bns_board_number);
+	//blinkSDK->Load_linear_LUT(bns_board_number); // If I do this, it dies when we load holograms
+	char* lut_file = "C:\\Program Files\\Meadowlark Optics\\Blink OverDrive Plus\\LUT Files\\linear.LUT";
+	blinkSDK->Load_LUT_file(bns_board_number, lut_file);
 	printf("Loaded linear LUT to board %d\n", bns_board_number);
 
 	// Check that everything started up successfully.
@@ -230,31 +236,30 @@ void copyHologramToBNS(){
 	// Send a UDP reply packet that contains the hologram
 	int w = gpgpu->getViewportWidth();
 	int h = gpgpu->getViewportHeight();
-	int numPixels = w*h;
-	unsigned char * image = (unsigned char *)malloc(numPixels);
+	int board_w = blinkSDK->Get_image_width(bns_board_number);
+	int board_h = blinkSDK->Get_image_height(bns_board_number);
+	if (w != board_w || h != board_h){
+		printf("Board is %dx%d, window is %dx%d\n", board_w, board_h, w, h);
+		return;
+	}
+	size_t numPixels = w*h;
+	unsigned char * image = new unsigned char[numPixels];
 	size_t hologram_length = gpgpu->getHologramChannelAsU8((GLubyte *)image, numPixels, GL_GREEN);
 	if (hologram_length != numPixels) goto error;
-	OutputDebugStringA("Preparing to transfer hologram to BNS (have a copy in memory)\n");
-
-	int board_w = Get_image_width(bns_board_number);
-	int board_h = Get_image_height(bns_board_number);
-	if (w != board_w || h != board_h){
-		char msg[256];
-		P_SNPRINTF(msg, 256, "Board is %dx%d, window is %dx%d", board_w, board_h, w, h);
-		OutputDebugStringA(msg);
-	}
+	printf("Preparing to transfer hologram to BNS (have a copy in memory)\n");
 	bool ExternalTrigger = false;
 	bool OutputPulse = false;
-	Write_image(bns_board_number, image, numPixels, ExternalTrigger, OutputPulse, 5000);
-	OutputDebugStringA("Transfer successful!\n");
+	blinkSDK->Write_image(bns_board_number, image, numPixels, ExternalTrigger, OutputPulse, 5000);
+	printf("Transfer successful!\n");
 
 	goto cleanup;
 error:
-	const char * failmsg = "an error occurred copying the hologram to the BNS SLM";
-	OutputDebugStringA(failmsg);
+	const char * failmsg = "an error occurred copying the hologram to the BNS SLM\n";
+	printf(failmsg);
 	udpServer->reply(failmsg, strlen(failmsg));
 cleanup:
-	free(buffer);
+	delete[] image;
+	printf("done");
 }
 
 #endif BNS_PCIE
@@ -273,13 +278,13 @@ char * skipSpace(char* pos){
 bool find_tag(char * str, const char * name, char ** tag, char ** tagend, char ** closingtag){
 	//this function is as close to a proper XML parser as I can be bothered writing.
 	//I know there's libraries for this, but I care mostly about speed here...
-	char * start = (char *) malloc(strlen(name)+2);
+	char * start = new char[strlen(name)+2];
 	start[0] = '<';
 	memcpy(start+1, name, strlen(name));
 	start[strlen(name)+1] = 0;
 
 	char * tagi = strstr(str, start); //the opening tag
-	free(start);
+	delete[] start;
 	if(tagi == NULL) return false;
 	if(tag != NULL) *tag = tagi;
 
@@ -287,7 +292,7 @@ bool find_tag(char * str, const char * name, char ** tag, char ** tagend, char *
 	if(tagendi == NULL) return false;
 	if(tagend != NULL) *tagend = tagendi;
 	
-	char * end = (char *) malloc(strlen(name)+4);
+	char * end = new char[strlen(name)+4];
 	end[0] = '<';
 	end[1] = '/';
 	memcpy(end+2, name, strlen(name));
@@ -295,7 +300,7 @@ bool find_tag(char * str, const char * name, char ** tag, char ** tagend, char *
 	end[strlen(name)+3] = 0;
 
 	char * closingtagi = strstr(tagendi, end); //the closing tag
-	free(end);
+	delete[] end;
 	if(closingtagi == NULL) return false;
 	if(closingtag != NULL) *closingtag = closingtagi;
 
@@ -426,7 +431,7 @@ int updateSpotsFromBuffer(char* recvbuffer, int messagelength){
 		}else{
 			int n=0;
 			float val;
-			float * textureData = (float *) malloc(width * height * components * sizeof(float));
+			float * textureData = new float [width * height * components * sizeof(float)];
 			pos += strspn(pos, " \t\n\r<");               //skip any initial whitespace
 			while(pos && pos < valEnd && P_SSCANF(pos, " %f", &val) && n<width*height*components){ //check that: 
 																				//we successfully skipped over whitespace, 
@@ -439,7 +444,7 @@ int updateSpotsFromBuffer(char* recvbuffer, int messagelength){
 			}
         
 			if(n=width*height*components) gpgpu->setUniformTexture(uniformID,textureData,width,height,4);
-			free(textureData);
+			delete[] textureData;
 		}
 	}
 	if(true){ //config-related stuff in here- we could disable this based on the presence of a <config> section...?
@@ -471,11 +476,11 @@ int updateSpotsFromBuffer(char* recvbuffer, int messagelength){
 			char * shaderSourceEnd = valEnd;
 
 			size_t shaderLength = shaderSourceEnd - shaderSourceStart;
-			char * shaderSource = (char *) malloc(shaderLength+1); //yes, I could probably just whack a null character into the buffer, but this is nicer...
+			char * shaderSource = new char[shaderLength+1]; //yes, I could probably just whack a null character into the buffer, but this is nicer...
 			memcpy(shaderSource, shaderSourceStart, shaderLength);
 			shaderSource[shaderLength]='\0';
 			gpgpu->recompileShader((const char **) &shaderSource);
-			free(shaderSource);
+			delete[] shaderSource;
 		}
 		if (find_tag(dataStart, "get_hologram_channel", NULL, &tagEnd, NULL)){
 			GLenum channel = GL_GREEN;
@@ -498,10 +503,10 @@ int updateSpotsFromBuffer(char* recvbuffer, int messagelength){
 
 // this function updates the spots from the network.
 int updateSpotsFromNetwork(int timeout){
-	int messagelength=udpServer->receive(buffer, MAX_UDP_BUFFER_LENGTH, timeout, "<data", "</data>"); //try to recieve a packet
+	int messagelength=udpServer->receive(udpReceiveBuffer, MAX_UDP_BUFFER_LENGTH, timeout, "<data", "</data>"); //try to recieve a packet
 
 	if(messagelength>0){ //if we've got something (which starts with <data and ends with </data>),
-		int ret = updateSpotsFromBuffer(buffer, messagelength);
+		int ret = updateSpotsFromBuffer(udpReceiveBuffer, messagelength);
 		if (networkReply){
 			char * replyBuffer = (char *)malloc(9);
 			replyBuffer = "cheers\r\n";
